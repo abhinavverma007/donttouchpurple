@@ -2,6 +2,7 @@ import { Component, OnDestroy, OnInit, computed, effect, inject, signal } from '
 import { ActivatedRoute, Router } from '@angular/router';
 import { Socket } from '../../services/socket';
 import { GameState } from '../../services/game-state';
+import { Audio } from '../../services/audio';
 import {
   DEFAULT_DURATION_SECONDS,
   DEFAULT_REFRESH_MS,
@@ -21,6 +22,7 @@ export class GameRoom implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly socketService = inject(Socket);
+  private readonly audio = inject(Audio);
   readonly gameState = inject(GameState);
 
   readonly shakeActive = signal(false);
@@ -45,6 +47,7 @@ export class GameRoom implements OnInit, OnDestroy {
   readonly me = this.gameState.me;
   readonly isHost = this.gameState.isHost;
   readonly canStart = this.gameState.canStart;
+  readonly isSolo = this.gameState.isSolo;
 
   readonly comboTierLabel = computed(() => {
     const combo = this.me()?.combo ?? 0;
@@ -79,9 +82,11 @@ export class GameRoom implements OnInit, OnDestroy {
         clearTimeout(this.shakeTimeout);
         this.shakeTimeout = setTimeout(() => this.shakeActive.set(false), 400);
         this.floatingTap.set({ index: tap.index, text: `-50`, color: 'var(--purple)' });
+        this.audio.playBuzz();
       } else {
         const multiplierLabel = tap.multiplier > 1 ? ` x${tap.multiplier}` : '';
         this.floatingTap.set({ index: tap.index, text: `+${tap.pointsAwarded}${multiplierLabel}`, color: 'var(--neon-green)' });
+        this.audio.playSuccess(tap.multiplier);
       }
 
       clearTimeout(this.floatTimeout);
@@ -107,6 +112,7 @@ export class GameRoom implements OnInit, OnDestroy {
 
   tapTile(index: number) {
     if (this.phase() !== 'playing') return;
+    this.audio.playClick();
     this.socketService.tapTile(this.roomId(), index);
   }
 

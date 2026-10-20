@@ -2,7 +2,7 @@
   <h1 class="title">
     DON'T TOUCH <span class="purple-word">THE PURPLE</span>
   </h1>
-  <p class="subtitle">Tap safe colors. Avoid purple. Beat your opponent.</p>
+  <p class="subtitle">Tap safe colors. Avoid purple. Solo or with friends.</p>
 
   @if (error()) {
     <div class="error-box brutal-box">{{ error() }}</div>
@@ -13,6 +13,9 @@
       <div class="menu-actions">
         <button class="brutal-button" (click)="showCreate()">Create Room</button>
         <button class="brutal-button secondary" (click)="showJoin()">Join Room</button>
+        <button class="brutal-button tertiary" [disabled]="busy()" (click)="playSolo()">
+          {{ busy() ? 'Starting…' : 'Play Solo' }}
+        </button>
       </div>
     }
     @case ('create') {

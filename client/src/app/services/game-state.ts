@@ -21,6 +21,7 @@ export class GameState {
   readonly timeLeft = signal(DEFAULT_DURATION_SECONDS);
   readonly durationSeconds = signal(DEFAULT_DURATION_SECONDS);
   readonly refreshMs = signal(DEFAULT_REFRESH_MS);
+  readonly isSolo = signal(false);
   readonly lastTap = signal<TapResult | null>(null);
   readonly errorMessage = signal<string | null>(null);
 
@@ -39,6 +40,7 @@ export class GameState {
     this.timeLeft.set(DEFAULT_DURATION_SECONDS);
     this.durationSeconds.set(DEFAULT_DURATION_SECONDS);
     this.refreshMs.set(DEFAULT_REFRESH_MS);
+    this.isSolo.set(false);
     this.lastTap.set(null);
     this.errorMessage.set(null);
   }

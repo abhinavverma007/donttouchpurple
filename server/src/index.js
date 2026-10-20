@@ -41,7 +41,7 @@ function endGame(io, room) {
     winner = leaders.length === 1 ? leaders[0].name : 'tie';
   }
 
-  io.to(room.id).emit('gameOver', { players, winner });
+  io.to(room.id).emit('gameOver', { players, winner, isSolo: room.isSolo });
 }
 
 const MAX_TAP_GRACE_MS = 250;
@@ -51,8 +51,9 @@ const MAX_TAP_GRACE_MS = 250;
 // out naturally, never after someone has already legitimately claimed it)
 // lets a late-arriving tap for that exact tile still score, once.
 function relightGrid(io, room, graceInfo = null) {
+  const previousIndex = room.grid.findIndex((c) => c !== null);
   room.previousLit = graceInfo;
-  room.grid = generateGrid();
+  room.grid = generateGrid(previousIndex);
   io.to(room.id).emit('syncGrid', { grid: room.grid });
 }
 
@@ -84,6 +85,7 @@ function startGameLoop(io, room, settings) {
     timeLeft: room.timeLeft,
     durationSeconds: room.durationSeconds,
     refreshMs: room.refreshMs,
+    isSolo: room.isSolo,
   });
 
   scheduleGridInterval(io, room);
@@ -98,8 +100,8 @@ function startGameLoop(io, room, settings) {
 }
 
 io.on('connection', (socket) => {
-  socket.on('createRoom', ({ name }, callback) => {
-    const room = createRoom(socket.id, name || 'Player 1');
+  socket.on('createRoom', ({ name, solo }, callback) => {
+    const room = createRoom(socket.id, name || 'Player 1', !!solo);
     socket.join(room.id);
     callback?.({ roomId: room.id, players: serializePlayers(room) });
   });
@@ -122,7 +124,7 @@ io.on('connection', (socket) => {
     if (!room) return;
     if (socket.id !== room.hostId) return;
     if (room.gameState !== 'waiting') return;
-    if (Object.keys(room.players).length < MIN_PLAYERS_TO_START) return;
+    if (!room.isSolo && Object.keys(room.players).length < MIN_PLAYERS_TO_START) return;
 
     startGameLoop(io, room, resolveGameSettings({ durationSeconds, refreshMs }));
   });

@@ -89,21 +89,34 @@
     }
     @case ('finished') {
       <section class="panel brutal-box result-panel">
-        @if (didIWin()) {
-          <h2 class="win">YOU STOOD {{ myRankLabel() }}!</h2>
+        @if (isSolo()) {
+          <h2>GAME OVER</h2>
+          <div class="solo-score">
+            <span class="solo-score-label">Final Score</span>
+            <span class="solo-score-value">{{ me()?.score ?? 0 }}</span>
+          </div>
         } @else {
-          <h2 class="lose">YOU STOOD {{ myRankLabel() }}!</h2>
+          @if (didIWin()) {
+            <h2 class="win">YOU STOOD {{ myRankLabel() }}!</h2>
+          } @else {
+            <h2 class="lose">YOU STOOD {{ myRankLabel() }}!</h2>
+          }
+
+          <ul class="final-scores">
+            @for (p of leaderboard(); track p.socketId; let i = $index) {
+              <li [class.you]="p.socketId === gameState.mySocketId()">
+                #{{ i + 1 }} {{ p.name }} — {{ p.score }}
+              </li>
+            }
+          </ul>
         }
 
-        <ul class="final-scores">
-          @for (p of leaderboard(); track p.socketId; let i = $index) {
-            <li [class.you]="p.socketId === gameState.mySocketId()">
-              #{{ i + 1 }} {{ p.name }} — {{ p.score }}
-            </li>
-          }
-        </ul>
-
         <button class="brutal-button" (click)="playAgain()">Play Again</button>
+      </section>
+    }
+    @default {
+      <section class="panel brutal-box">
+        <p class="hint">Starting…</p>
       </section>
     }
   }

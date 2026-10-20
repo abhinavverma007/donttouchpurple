@@ -12,11 +12,12 @@ function generateRoomId() {
   return id;
 }
 
-function createRoom(hostSocketId, hostName) {
+function createRoom(hostSocketId, hostName, isSolo = false) {
   const roomId = generateRoomId();
   rooms[roomId] = {
     id: roomId,
     hostId: hostSocketId,
+    isSolo: !!isSolo,
     players: {
       [hostSocketId]: { name: hostName, score: 0, combo: 0 },
     },
@@ -37,6 +38,7 @@ function getRoom(roomId) {
 function joinRoom(roomId, socketId, name) {
   const room = rooms[roomId];
   if (!room) return { error: 'Room not found' };
+  if (room.isSolo) return { error: 'Room not found' };
   if (room.gameState !== 'waiting') return { error: 'Game already in progress' };
   if (Object.keys(room.players).length >= MAX_PLAYERS) return { error: 'Room is full' };
 

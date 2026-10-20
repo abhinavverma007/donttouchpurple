@@ -9,9 +9,15 @@ function randomColor() {
 }
 
 // Only one tile is ever "lit" (has a color) at a time; the rest are dull (null).
-function generateGrid() {
+// `excludeIndex` keeps the same tile from lighting up twice in a row -
+// mathematically a repeat is still "random", but it reads as suspiciously
+// non-random to a human watching, so we reroll (uniformly) over the rest.
+function generateGrid(excludeIndex = -1) {
   const grid = new Array(GRID_SIZE).fill(null);
-  const litIndex = Math.floor(Math.random() * GRID_SIZE);
+  let litIndex = Math.floor(Math.random() * GRID_SIZE);
+  while (litIndex === excludeIndex) {
+    litIndex = Math.floor(Math.random() * GRID_SIZE);
+  }
   grid[litIndex] = randomColor();
   return grid;
 }

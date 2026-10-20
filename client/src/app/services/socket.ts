@@ -49,16 +49,19 @@ export class Socket {
         timeLeft,
         durationSeconds,
         refreshMs,
+        isSolo,
       }: {
         grid: GridTile[];
         timeLeft: number;
         durationSeconds: number;
         refreshMs: number;
+        isSolo: boolean;
       }) => {
         this.gameState.grid.set(grid);
         this.gameState.timeLeft.set(timeLeft);
         this.gameState.durationSeconds.set(durationSeconds);
         this.gameState.refreshMs.set(refreshMs);
+        this.gameState.isSolo.set(isSolo);
         this.gameState.phase.set('playing');
       },
     );
@@ -82,11 +85,11 @@ export class Socket {
     });
   }
 
-  createRoom(name: string): Promise<CreateRoomResponse> {
+  createRoom(name: string, solo = false): Promise<CreateRoomResponse> {
     const socket = this.ensureConnected();
     this.gameState.playerName.set(name);
     return new Promise((resolve) => {
-      socket.emit('createRoom', { name }, (res: CreateRoomResponse) => resolve(res));
+      socket.emit('createRoom', { name, solo }, (res: CreateRoomResponse) => resolve(res));
     });
   }
 

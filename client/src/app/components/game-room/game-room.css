@@ -206,6 +206,27 @@
   color: var(--neon-pink);
 }
 
+.solo-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.solo-score-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #aaa;
+  font-weight: 700;
+}
+
+.solo-score-value {
+  font-size: 3rem;
+  font-weight: 900;
+  color: var(--neon-cyan);
+}
+
 .final-scores {
   list-style: none;
   padding: 0;

@@ -49,6 +49,10 @@
   background: var(--neon-cyan);
 }
 
+.brutal-button.tertiary {
+  background: var(--neon-orange);
+}
+
 .form-box {
   width: 100%;
   padding: 24px;
