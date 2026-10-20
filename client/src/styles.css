@@ -1,0 +1,128 @@
+:root {
+  --color-bg: #000000;
+  --color-white: #ffffff;
+  --neon-green: #39ff14;
+  --neon-cyan: #00f0ff;
+  --neon-orange: #ff8c00;
+  --neon-pink: #ff2bd6;
+  --neon-yellow: #faff00;
+  --neon-red: #ff1744;
+  --neon-blue: #2d6bff;
+  --purple: #8a2be2;
+  --border-width: 4px;
+  --shadow-offset: 6px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-white);
+  font-family: 'Arial Black', 'Helvetica Neue', Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+app-root {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-main {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+app-home,
+app-game-room {
+  display: contents;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+input {
+  font-family: inherit;
+}
+
+.brutal-box {
+  background: var(--color-bg);
+  border: var(--border-width) solid var(--color-white);
+  box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--color-white);
+}
+
+.brutal-button {
+  background: var(--neon-green);
+  color: #000;
+  border: var(--border-width) solid var(--color-white);
+  box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--color-white);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 14px 24px;
+  font-size: 1rem;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+
+.brutal-button:active:not(:disabled) {
+  transform: translate(3px, 3px);
+  box-shadow: 3px 3px 0 var(--color-white);
+}
+
+.brutal-input {
+  background: #0a0a0a;
+  color: var(--color-white);
+  border: var(--border-width) solid var(--color-white);
+  box-shadow: 4px 4px 0 var(--color-white);
+  padding: 12px 16px;
+  font-size: 1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.brutal-input::placeholder {
+  color: #666;
+}
+
+@keyframes screen-shake {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-8px, 4px); }
+  40% { transform: translate(8px, -4px); }
+  60% { transform: translate(-6px, -6px); }
+  80% { transform: translate(6px, 6px); }
+}
+
+.shake {
+  animation: screen-shake 0.4s ease;
+}
+
+@keyframes float-up {
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(-50px); opacity: 0; }
+}
+
+.floating-number {
+  position: absolute;
+  font-weight: 900;
+  font-size: 1.5rem;
+  pointer-events: none;
+  animation: float-up 0.7s ease-out forwards;
+  z-index: 10;
+}

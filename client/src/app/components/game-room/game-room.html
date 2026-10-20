@@ -1,0 +1,110 @@
+<div class="room-wrap" [class.shake]="shakeActive()">
+  @switch (phase()) {
+    @case ('waiting') {
+      <section class="panel brutal-box waiting-panel">
+        <h2>Waiting Room</h2>
+        <div class="room-id-row">
+          <span>Room ID</span>
+          <button class="room-id brutal-button secondary" (click)="copyRoomId()">{{ roomId() }} ⧉</button>
+        </div>
+
+        <p class="player-count">{{ players().length }} / {{ maxPlayers }} players</p>
+
+        <ul class="player-list">
+          @for (p of players(); track p.socketId) {
+            <li>
+              {{ p.name }}
+              @if (p.isHost) { <span class="tag">HOST</span> }
+              @if (p.socketId === gameState.mySocketId()) { <span class="tag you">YOU</span> }
+            </li>
+          }
+        </ul>
+
+        @if (players().length < 2) {
+          <p class="hint">Waiting for at least one more player to join…</p>
+        } @else if (isHost()) {
+          <div class="host-settings">
+            <label for="durationSelect">Match Length</label>
+            <select
+              id="durationSelect"
+              class="brutal-input"
+              (change)="selectedDuration.set(+$any($event.target).value)"
+            >
+              @for (d of durationOptions; track d) {
+                <option [value]="d" [selected]="d === selectedDuration()">{{ d }}s{{ d === 60 ? ' (default)' : '' }}</option>
+              }
+            </select>
+
+            <label for="speedSelect">Tile Speed</label>
+            <select
+              id="speedSelect"
+              class="brutal-input"
+              (change)="selectedRefreshMs.set(+$any($event.target).value)"
+            >
+              @for (s of speedOptions; track s.refreshMs) {
+                <option [value]="s.refreshMs" [selected]="s.refreshMs === selectedRefreshMs()">{{ s.label }}{{ s.refreshMs === 800 ? ' (default)' : '' }}</option>
+              }
+            </select>
+          </div>
+
+          <button class="brutal-button" [disabled]="!canStart()" (click)="startGame()">Start Game</button>
+        } @else {
+          <p class="hint">Waiting for the host to start…</p>
+        }
+      </section>
+    }
+    @case ('playing') {
+      <section class="arena">
+        <header class="hud">
+          <div class="timer brutal-box">{{ timeLeft() }}s</div>
+          <div class="combo-hud brutal-box">COMBO: {{ me()?.combo ?? 0 }} · {{ comboTierLabel() }}</div>
+        </header>
+
+        <ul class="scoreboard brutal-box">
+          @for (p of leaderboard(); track p.socketId; let i = $index) {
+            <li class="score-row" [class.me]="p.socketId === gameState.mySocketId()">
+              <span class="rank">#{{ i + 1 }}</span>
+              <span class="player-name">{{ p.name }}{{ p.socketId === gameState.mySocketId() ? ' (you)' : '' }}</span>
+              <span class="player-score">{{ p.score }}</span>
+            </li>
+          }
+        </ul>
+
+        <div class="grid">
+          @for (color of grid(); track $index) {
+            <button
+              class="tile"
+              [class.purple]="color === 'purple'"
+              [class.dull]="!color"
+              [style.background]="color ? 'var(--' + color + ')' : null"
+              (click)="tapTile($index)"
+            >
+              @if (floatingTap() && floatingTap()!.index === $index) {
+                <span class="floating-number" [style.color]="floatingTap()!.color">{{ floatingTap()!.text }}</span>
+              }
+            </button>
+          }
+        </div>
+      </section>
+    }
+    @case ('finished') {
+      <section class="panel brutal-box result-panel">
+        @if (didIWin()) {
+          <h2 class="win">YOU STOOD {{ myRankLabel() }}!</h2>
+        } @else {
+          <h2 class="lose">YOU STOOD {{ myRankLabel() }}!</h2>
+        }
+
+        <ul class="final-scores">
+          @for (p of leaderboard(); track p.socketId; let i = $index) {
+            <li [class.you]="p.socketId === gameState.mySocketId()">
+              #{{ i + 1 }} {{ p.name }} — {{ p.score }}
+            </li>
+          }
+        </ul>
+
+        <button class="brutal-button" (click)="playAgain()">Play Again</button>
+      </section>
+    }
+  }
+</div>
