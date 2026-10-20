@@ -22,6 +22,7 @@ function createRoom(hostSocketId, hostName) {
     },
     gameState: 'waiting', // waiting | playing | finished
     grid: [],
+    previousLit: null,
     timeLeft: 60,
     gridInterval: null,
     timerInterval: null,

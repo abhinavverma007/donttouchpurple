@@ -44,14 +44,32 @@ function endGame(io, room) {
   io.to(room.id).emit('gameOver', { players, winner });
 }
 
-function relightGrid(io, room) {
+const MAX_TAP_GRACE_MS = 250;
+
+// Network latency can land a perfectly-timed tap just after the server has
+// already relit the tile elsewhere. `graceInfo` (set only when a tile times
+// out naturally, never after someone has already legitimately claimed it)
+// lets a late-arriving tap for that exact tile still score, once.
+function relightGrid(io, room, graceInfo = null) {
+  room.previousLit = graceInfo;
   room.grid = generateGrid();
   io.to(room.id).emit('syncGrid', { grid: room.grid });
 }
 
 function scheduleGridInterval(io, room) {
   if (room.gridInterval) clearInterval(room.gridInterval);
-  room.gridInterval = setInterval(() => relightGrid(io, room), room.refreshMs);
+  room.gridInterval = setInterval(() => {
+    const litIndex = room.grid.findIndex((c) => c !== null);
+    const graceInfo =
+      litIndex === -1
+        ? null
+        : {
+            index: litIndex,
+            color: room.grid[litIndex],
+            expiresAt: Date.now() + Math.min(MAX_TAP_GRACE_MS, Math.floor(room.refreshMs / 2)),
+          };
+    relightGrid(io, room, graceInfo);
+  }, room.refreshMs);
 }
 
 function startGameLoop(io, room, settings) {
@@ -116,8 +134,15 @@ io.on('connection', (socket) => {
     if (!player) return;
     if (index < 0 || index >= room.grid.length) return;
 
-    const color = room.grid[index];
-    if (color === null) return; // dull tile, nothing to tap
+    let color = room.grid[index];
+
+    if (color === null) {
+      const grace = room.previousLit;
+      const withinGrace = grace && grace.index === index && Date.now() <= grace.expiresAt;
+      if (!withinGrace) return; // genuinely a dull tile, nothing to tap
+      color = grace.color;
+      room.previousLit = null; // consume it so only the first late tap scores
+    }
 
     const result = applyTap(player, color);
 
