@@ -1,5 +1,5 @@
 export const environment = {
   production: true,
   // TODO: replace with the deployed Render backend URL after deployment.
-  serverUrl: 'https://REPLACE_WITH_RENDER_BACKEND_URL',
+  serverUrl: 'https://donttouchpurple-vh8h.onrender.com',
 };
