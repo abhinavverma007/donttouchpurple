@@ -2,11 +2,12 @@ import { Service, inject } from '@angular/core';
 import { io, Socket as IOSocket } from 'socket.io-client';
 import { environment } from '../../environments/environment';
 import { GameState } from './game-state';
-import { GridTile, Player, TapResult } from '../models/game.models';
+import { GridTile, Player, TapResult, TileColor } from '../models/game.models';
 
 interface CreateRoomResponse {
   roomId: string;
   players: Player[];
+  isSolo?: boolean;
   error?: string;
 }
 
@@ -49,18 +50,21 @@ export class Socket {
         timeLeft,
         durationSeconds,
         refreshMs,
+        dangerColor,
         isSolo,
       }: {
         grid: GridTile[];
         timeLeft: number;
         durationSeconds: number;
         refreshMs: number;
+        dangerColor: TileColor;
         isSolo: boolean;
       }) => {
         this.gameState.grid.set(grid);
         this.gameState.timeLeft.set(timeLeft);
         this.gameState.durationSeconds.set(durationSeconds);
         this.gameState.refreshMs.set(refreshMs);
+        this.gameState.dangerColor.set(dangerColor);
         this.gameState.isSolo.set(isSolo);
         this.gameState.phase.set('playing');
       },
@@ -83,6 +87,13 @@ export class Socket {
       this.gameState.players.set(players);
       this.gameState.phase.set('finished');
     });
+
+    socket.on('roomReset', ({ players }: { players: Player[] }) => {
+      this.gameState.players.set(players);
+      this.gameState.grid.set([]);
+      this.gameState.lastTap.set(null);
+      this.gameState.phase.set('waiting');
+    });
   }
 
   createRoom(name: string, solo = false): Promise<CreateRoomResponse> {
@@ -101,12 +112,16 @@ export class Socket {
     });
   }
 
-  startGame(roomId: string, durationSeconds: number, refreshMs: number) {
-    this.socket?.emit('startGame', { roomId, durationSeconds, refreshMs });
+  startGame(roomId: string, durationSeconds: number, refreshMs: number, dangerColor: TileColor) {
+    this.socket?.emit('startGame', { roomId, durationSeconds, refreshMs, dangerColor });
   }
 
   tapTile(roomId: string, index: number) {
     this.socket?.emit('tapTile', { roomId, index });
+  }
+
+  playAgain(roomId: string) {
+    this.socket?.emit('playAgain', { roomId });
   }
 
   disconnect() {

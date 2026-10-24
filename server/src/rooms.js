@@ -75,6 +75,21 @@ function removePlayer(socketId) {
   return affected;
 }
 
+// "Play Again" reuses the same room instead of tearing it down: everyone's
+// score/combo resets and the room goes back to 'waiting' so the host can
+// tweak settings and start a fresh round, without players having to
+// re-share the room code.
+function resetRoomForNewRound(room) {
+  clearRoomIntervals(room);
+  for (const player of Object.values(room.players)) {
+    player.score = 0;
+    player.combo = 0;
+  }
+  room.gameState = 'waiting';
+  room.grid = [];
+  room.previousLit = null;
+}
+
 function clearRoomIntervals(room) {
   if (room.gridInterval) clearInterval(room.gridInterval);
   if (room.timerInterval) clearInterval(room.timerInterval);
@@ -101,5 +116,6 @@ module.exports = {
   joinRoom,
   removePlayer,
   clearRoomIntervals,
+  resetRoomForNewRound,
   serializePlayers,
 };

@@ -7,7 +7,10 @@
   --neon-pink: #ff2bd6;
   --neon-yellow: #faff00;
   --neon-red: #ff1744;
-  --neon-blue: #2d6bff;
+  /* A clear sky-blue, deliberately shifted away from blue-violet so it can't
+     be mistaken for --purple, which many older players struggle to tell
+     apart from blue due to age-related lens yellowing. */
+  --neon-blue: #2196f3;
   --purple: #8a2be2;
   --border-width: 4px;
   --shadow-offset: 6px;

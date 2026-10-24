@@ -2,13 +2,28 @@
   @switch (phase()) {
     @case ('waiting') {
       <section class="panel brutal-box waiting-panel">
-        <h2>Waiting Room</h2>
-        <div class="room-id-row">
-          <span>Room ID</span>
-          <button class="room-id brutal-button secondary" (click)="copyRoomId()">{{ roomId() }} ⧉</button>
+        <div class="waiting-header">
+          <h2>Waiting Room</h2>
+          @if (fullscreen.isSupported) {
+            <button
+              class="fullscreen-toggle brutal-box"
+              (click)="fullscreen.toggle()"
+              [attr.aria-label]="fullscreen.isActive() ? 'Exit fullscreen' : 'Enter fullscreen'"
+              [title]="fullscreen.isActive() ? 'Exit fullscreen' : 'Enter fullscreen'"
+            >
+              ⛶
+            </button>
+          }
         </div>
 
-        <p class="player-count">{{ players().length }} / {{ maxPlayers }} players</p>
+        @if (!isSolo()) {
+          <div class="room-id-row">
+            <span>Room ID</span>
+            <button class="room-id brutal-button secondary" (click)="copyRoomId()">{{ roomId() }} ⧉</button>
+          </div>
+
+          <p class="player-count">{{ players().length }} / {{ maxPlayers }} players</p>
+        }
 
         <ul class="player-list">
           @for (p of players(); track p.socketId) {
@@ -20,7 +35,7 @@
           }
         </ul>
 
-        @if (players().length < 2) {
+        @if (!isSolo() && players().length < 2) {
           <p class="hint">Waiting for at least one more player to join…</p>
         } @else if (isHost()) {
           <div class="host-settings">
@@ -42,7 +57,18 @@
               (change)="selectedRefreshMs.set(+$any($event.target).value)"
             >
               @for (s of speedOptions; track s.refreshMs) {
-                <option [value]="s.refreshMs" [selected]="s.refreshMs === selectedRefreshMs()">{{ s.label }}{{ s.refreshMs === 800 ? ' (default)' : '' }}</option>
+                <option [value]="s.refreshMs" [selected]="s.refreshMs === selectedRefreshMs()">{{ s.label }}{{ s.refreshMs === defaultRefreshMs ? ' (default)' : '' }}</option>
+              }
+            </select>
+
+            <label for="dangerColorSelect">Color to Avoid</label>
+            <select
+              id="dangerColorSelect"
+              class="brutal-input"
+              (change)="selectedDangerColor.set($any($event.target).value)"
+            >
+              @for (c of colorOptions; track c.value) {
+                <option [value]="c.value" [selected]="c.value === selectedDangerColor()">{{ c.label }}{{ c.value === 'purple' ? ' (default)' : '' }}</option>
               }
             </select>
           </div>
@@ -57,7 +83,21 @@
       <section class="arena">
         <header class="hud">
           <div class="timer brutal-box">{{ timeLeft() }}s</div>
+          <div class="avoid-indicator brutal-box">
+            <span>AVOID</span>
+            <span class="avoid-swatch" [style.background]="'var(--' + dangerColor() + ')'"></span>
+          </div>
           <div class="combo-hud brutal-box">COMBO: {{ me()?.combo ?? 0 }} · {{ comboTierLabel() }}</div>
+          @if (fullscreen.isSupported) {
+            <button
+              class="fullscreen-toggle brutal-box"
+              (click)="fullscreen.toggle()"
+              [attr.aria-label]="fullscreen.isActive() ? 'Exit fullscreen' : 'Enter fullscreen'"
+              [title]="fullscreen.isActive() ? 'Exit fullscreen' : 'Enter fullscreen'"
+            >
+              ⛶
+            </button>
+          }
         </header>
 
         <ul class="scoreboard brutal-box">
@@ -74,7 +114,6 @@
           @for (color of grid(); track $index) {
             <button
               class="tile"
-              [class.purple]="color === 'purple'"
               [class.dull]="!color"
               [style.background]="color ? 'var(--' + color + ')' : null"
               (click)="tapTile($index)"
@@ -111,7 +150,10 @@
           </ul>
         }
 
-        <button class="brutal-button" (click)="playAgain()">Play Again</button>
+        <div class="result-actions">
+          <button class="brutal-button secondary" (click)="leaveRoom()">Leave</button>
+          <button class="brutal-button" (click)="playAgain()">Play Again</button>
+        </div>
       </section>
     }
     @default {

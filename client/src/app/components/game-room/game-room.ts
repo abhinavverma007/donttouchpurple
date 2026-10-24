@@ -3,12 +3,16 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Socket } from '../../services/socket';
 import { GameState } from '../../services/game-state';
 import { Audio } from '../../services/audio';
+import { Fullscreen } from '../../services/fullscreen';
 import {
+  COLOR_OPTIONS,
+  DEFAULT_DANGER_COLOR,
   DEFAULT_DURATION_SECONDS,
   DEFAULT_REFRESH_MS,
   DURATION_OPTIONS,
   MAX_PLAYERS,
   SPEED_OPTIONS,
+  TileColor,
 } from '../../models/game.models';
 import { ordinal } from '../../utils/ordinal';
 
@@ -23,6 +27,7 @@ export class GameRoom implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly socketService = inject(Socket);
   private readonly audio = inject(Audio);
+  readonly fullscreen = inject(Fullscreen);
   readonly gameState = inject(GameState);
 
   readonly shakeActive = signal(false);
@@ -33,10 +38,13 @@ export class GameRoom implements OnInit, OnDestroy {
   readonly maxPlayers = MAX_PLAYERS;
   readonly durationOptions = DURATION_OPTIONS;
   readonly speedOptions = SPEED_OPTIONS;
+  readonly colorOptions = COLOR_OPTIONS;
+  readonly defaultRefreshMs = DEFAULT_REFRESH_MS;
 
   // Host-only draft settings, picked before starting; default to the standard match.
   readonly selectedDuration = signal(DEFAULT_DURATION_SECONDS);
   readonly selectedRefreshMs = signal(DEFAULT_REFRESH_MS);
+  readonly selectedDangerColor = signal<TileColor>(DEFAULT_DANGER_COLOR);
 
   readonly roomId = computed(() => this.gameState.roomId());
   readonly players = this.gameState.players;
@@ -48,6 +56,7 @@ export class GameRoom implements OnInit, OnDestroy {
   readonly isHost = this.gameState.isHost;
   readonly canStart = this.gameState.canStart;
   readonly isSolo = this.gameState.isSolo;
+  readonly dangerColor = this.gameState.dangerColor;
 
   readonly comboTierLabel = computed(() => {
     const combo = this.me()?.combo ?? 0;
@@ -77,11 +86,11 @@ export class GameRoom implements OnInit, OnDestroy {
       const tap = this.gameState.lastTap();
       if (!tap) return;
 
-      if (tap.hitPurple) {
+      if (tap.hitDanger) {
         this.shakeActive.set(true);
         clearTimeout(this.shakeTimeout);
         this.shakeTimeout = setTimeout(() => this.shakeActive.set(false), 400);
-        this.floatingTap.set({ index: tap.index, text: `-50`, color: 'var(--purple)' });
+        this.floatingTap.set({ index: tap.index, text: `-50`, color: `var(--${this.gameState.dangerColor()})` });
         this.audio.playBuzz();
       } else {
         const multiplierLabel = tap.multiplier > 1 ? ` x${tap.multiplier}` : '';
@@ -107,7 +116,12 @@ export class GameRoom implements OnInit, OnDestroy {
   }
 
   startGame() {
-    this.socketService.startGame(this.roomId(), this.selectedDuration(), this.selectedRefreshMs());
+    this.socketService.startGame(
+      this.roomId(),
+      this.selectedDuration(),
+      this.selectedRefreshMs(),
+      this.selectedDangerColor(),
+    );
   }
 
   tapTile(index: number) {
@@ -121,6 +135,10 @@ export class GameRoom implements OnInit, OnDestroy {
   }
 
   playAgain() {
+    this.socketService.playAgain(this.roomId());
+  }
+
+  leaveRoom() {
     this.socketService.disconnect();
     this.gameState.reset();
     this.router.navigate(['/']);

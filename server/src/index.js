@@ -12,6 +12,7 @@ const {
   joinRoom,
   removePlayer,
   clearRoomIntervals,
+  resetRoomForNewRound,
   serializePlayers,
   MIN_PLAYERS_TO_START,
 } = require('./rooms');
@@ -98,6 +99,7 @@ function startGameLoop(io, room, settings) {
   room.gameState = 'playing';
   room.durationSeconds = settings.durationSeconds;
   room.refreshMs = settings.refreshMs;
+  room.dangerColor = settings.dangerColor;
   room.timeLeft = settings.durationSeconds;
   room.grid = generateGrid();
 
@@ -106,6 +108,7 @@ function startGameLoop(io, room, settings) {
     timeLeft: room.timeLeft,
     durationSeconds: room.durationSeconds,
     refreshMs: room.refreshMs,
+    dangerColor: room.dangerColor,
     isSolo: room.isSolo,
   });
 
@@ -125,7 +128,7 @@ io.on('connection', (socket) => {
     leaveAllRooms(io, socket);
     const room = createRoom(socket.id, name || 'Player 1', !!solo);
     socket.join(room.id);
-    callback?.({ roomId: room.id, players: serializePlayers(room) });
+    callback?.({ roomId: room.id, players: serializePlayers(room), isSolo: room.isSolo });
   });
 
   socket.on('joinRoom', ({ roomId, name }, callback) => {
@@ -142,14 +145,24 @@ io.on('connection', (socket) => {
     socket.to(roomId).emit('playerJoined', { players });
   });
 
-  socket.on('startGame', ({ roomId, durationSeconds, refreshMs }) => {
+  socket.on('startGame', ({ roomId, durationSeconds, refreshMs, dangerColor }) => {
     const room = getRoom(roomId);
     if (!room) return;
     if (socket.id !== room.hostId) return;
     if (room.gameState !== 'waiting') return;
     if (!room.isSolo && Object.keys(room.players).length < MIN_PLAYERS_TO_START) return;
 
-    startGameLoop(io, room, resolveGameSettings({ durationSeconds, refreshMs }));
+    startGameLoop(io, room, resolveGameSettings({ durationSeconds, refreshMs, dangerColor }));
+  });
+
+  socket.on('playAgain', ({ roomId }) => {
+    const room = getRoom(roomId);
+    if (!room) return;
+    if (!room.players[socket.id]) return;
+    if (room.gameState !== 'finished') return;
+
+    resetRoomForNewRound(room);
+    io.to(roomId).emit('roomReset', { players: serializePlayers(room) });
   });
 
   socket.on('tapTile', ({ roomId, index }) => {
@@ -169,7 +182,7 @@ io.on('connection', (socket) => {
       room.previousLit = null; // consume it so only the first late tap scores
     }
 
-    const result = applyTap(player, color);
+    const result = applyTap(player, color, room.dangerColor);
 
     io.to(roomId).emit('scoreUpdate', {
       socketId: socket.id,

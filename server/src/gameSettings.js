@@ -1,15 +1,20 @@
+const { ALL_COLORS } = require('./colors');
+
 const DURATION_OPTIONS = [30, 60, 90, 120]; // seconds
 const DEFAULT_DURATION_SECONDS = 60;
 
-const SPEED_OPTIONS = [800, 500, 300]; // grid refresh interval, ms (lower = faster)
-const DEFAULT_REFRESH_MS = 800;
+const SPEED_OPTIONS = [1400, 800, 500, 300]; // grid refresh interval, ms (lower = faster)
+const DEFAULT_REFRESH_MS = 1400;
+
+const DEFAULT_DANGER_COLOR = 'purple';
 
 // Host-chosen settings are untrusted input; fall back to defaults for anything
 // outside the fixed allowed sets instead of trusting arbitrary client values.
-function resolveGameSettings({ durationSeconds, refreshMs } = {}) {
+function resolveGameSettings({ durationSeconds, refreshMs, dangerColor } = {}) {
   return {
     durationSeconds: DURATION_OPTIONS.includes(durationSeconds) ? durationSeconds : DEFAULT_DURATION_SECONDS,
     refreshMs: SPEED_OPTIONS.includes(refreshMs) ? refreshMs : DEFAULT_REFRESH_MS,
+    dangerColor: ALL_COLORS.includes(dangerColor) ? dangerColor : DEFAULT_DANGER_COLOR,
   };
 }
 
@@ -18,5 +23,6 @@ module.exports = {
   DEFAULT_DURATION_SECONDS,
   SPEED_OPTIONS,
   DEFAULT_REFRESH_MS,
+  DEFAULT_DANGER_COLOR,
   resolveGameSettings,
 };

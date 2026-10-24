@@ -1,5 +1,6 @@
 import { Service, signal, computed } from '@angular/core';
 import {
+  DEFAULT_DANGER_COLOR,
   DEFAULT_DURATION_SECONDS,
   DEFAULT_REFRESH_MS,
   GamePhase,
@@ -7,6 +8,7 @@ import {
   MIN_PLAYERS_TO_START,
   Player,
   TapResult,
+  TileColor,
 } from '../models/game.models';
 
 @Service()
@@ -21,6 +23,7 @@ export class GameState {
   readonly timeLeft = signal(DEFAULT_DURATION_SECONDS);
   readonly durationSeconds = signal(DEFAULT_DURATION_SECONDS);
   readonly refreshMs = signal(DEFAULT_REFRESH_MS);
+  readonly dangerColor = signal<TileColor>(DEFAULT_DANGER_COLOR);
   readonly isSolo = signal(false);
   readonly lastTap = signal<TapResult | null>(null);
   readonly errorMessage = signal<string | null>(null);
@@ -28,7 +31,10 @@ export class GameState {
   readonly me = computed(() => this.players().find((p) => p.socketId === this.mySocketId()) ?? null);
   readonly isHost = computed(() => this.me()?.isHost ?? false);
   readonly canStart = computed(
-    () => this.isHost() && this.players().length >= MIN_PLAYERS_TO_START && this.phase() === 'waiting',
+    () =>
+      this.isHost() &&
+      (this.isSolo() || this.players().length >= MIN_PLAYERS_TO_START) &&
+      this.phase() === 'waiting',
   );
   readonly leaderboard = computed(() => [...this.players()].sort((a, b) => b.score - a.score));
 
@@ -40,6 +46,7 @@ export class GameState {
     this.timeLeft.set(DEFAULT_DURATION_SECONDS);
     this.durationSeconds.set(DEFAULT_DURATION_SECONDS);
     this.refreshMs.set(DEFAULT_REFRESH_MS);
+    this.dangerColor.set(DEFAULT_DANGER_COLOR);
     this.isSolo.set(false);
     this.lastTap.set(null);
     this.errorMessage.set(null);

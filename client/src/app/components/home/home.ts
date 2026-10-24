@@ -3,7 +3,6 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Socket } from '../../services/socket';
 import { GameState } from '../../services/game-state';
-import { DEFAULT_DURATION_SECONDS, DEFAULT_REFRESH_MS } from '../../models/game.models';
 
 type Mode = 'menu' | 'create' | 'join';
 
@@ -104,7 +103,8 @@ export class Home {
 
     this.gameState.roomId.set(res.roomId);
     this.gameState.players.set(res.players);
-    this.socketService.startGame(res.roomId, DEFAULT_DURATION_SECONDS, DEFAULT_REFRESH_MS);
+    this.gameState.isSolo.set(true);
+    this.gameState.phase.set('waiting');
     this.busy.set(false);
     this.router.navigate(['/room', res.roomId]);
   }

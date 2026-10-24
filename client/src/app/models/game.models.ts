@@ -24,7 +24,7 @@ export type ComboTier = 'none' | 'bronze' | 'silver' | 'gold';
 export interface TapResult {
   index: number;
   color: TileColor;
-  hitPurple: boolean;
+  hitDanger: boolean;
   pointsAwarded: number;
   combo: number;
   tier: ComboTier;
@@ -40,13 +40,30 @@ export const MAX_PLAYERS = 10;
 export const DEFAULT_DURATION_SECONDS = 60;
 export const DURATION_OPTIONS = [30, 60, 90, 120];
 
-export const DEFAULT_REFRESH_MS = 800;
+export const DEFAULT_REFRESH_MS = 1400;
 export interface SpeedOption {
   label: string;
   refreshMs: number;
 }
 export const SPEED_OPTIONS: SpeedOption[] = [
+  { label: 'Relaxed', refreshMs: 1400 },
   { label: 'Normal', refreshMs: 800 },
   { label: 'Fast', refreshMs: 500 },
   { label: 'Very Fast', refreshMs: 300 },
+];
+
+export interface ColorOption {
+  value: TileColor;
+  label: string;
+}
+export const DEFAULT_DANGER_COLOR: TileColor = 'purple';
+export const COLOR_OPTIONS: ColorOption[] = [
+  { value: 'purple', label: 'Purple' },
+  { value: 'neon-green', label: 'Green' },
+  { value: 'neon-cyan', label: 'Cyan' },
+  { value: 'neon-blue', label: 'Blue' },
+  { value: 'neon-orange', label: 'Orange' },
+  { value: 'neon-yellow', label: 'Yellow' },
+  { value: 'neon-red', label: 'Red' },
+  { value: 'neon-pink', label: 'Pink' },
 ];
