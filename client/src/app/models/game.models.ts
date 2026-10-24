@@ -40,16 +40,20 @@ export const MAX_PLAYERS = 10;
 export const DEFAULT_DURATION_SECONDS = 60;
 export const DURATION_OPTIONS = [30, 60, 90, 120];
 
-export const DEFAULT_REFRESH_MS = 1400;
+// This isn't simple reaction time (~200ms) - it's visual search across 10
+// tile positions, color ID, a decide, and a physical tap, which realistically
+// needs 400-800ms+ even for an attentive player. Rebalanced so even "Very
+// Fast" stays genuinely human-achievable (hard, not robot-only).
+export const DEFAULT_REFRESH_MS = 1800;
 export interface SpeedOption {
   label: string;
   refreshMs: number;
 }
 export const SPEED_OPTIONS: SpeedOption[] = [
-  { label: 'Relaxed', refreshMs: 1400 },
-  { label: 'Normal', refreshMs: 800 },
-  { label: 'Fast', refreshMs: 500 },
-  { label: 'Very Fast', refreshMs: 300 },
+  { label: 'Relaxed', refreshMs: 1800 },
+  { label: 'Normal', refreshMs: 1200 },
+  { label: 'Fast', refreshMs: 900 },
+  { label: 'Very Fast', refreshMs: 600 },
 ];
 
 export interface ColorOption {
