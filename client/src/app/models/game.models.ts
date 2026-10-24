@@ -22,6 +22,7 @@ export interface Player {
 export type ComboTier = 'none' | 'bronze' | 'silver' | 'gold';
 
 export interface TapResult {
+  socketId: string;
   index: number;
   color: TileColor;
   hitDanger: boolean;

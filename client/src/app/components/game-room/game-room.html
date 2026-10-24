@@ -104,6 +104,16 @@
           }
         </header>
 
+        @if (dangerCallout()) {
+          <div
+            class="danger-callout brutal-box"
+            [style.border-color]="'var(--' + dangerColor() + ')'"
+            [style.color]="'var(--' + dangerColor() + ')'"
+          >
+            {{ dangerCallout() }} HIT {{ dangerColorLabel() }}!
+          </div>
+        }
+
         <ul class="scoreboard brutal-box">
           @for (p of leaderboard(); track p.socketId; let i = $index) {
             <li class="score-row" [class.me]="p.socketId === gameState.mySocketId()">

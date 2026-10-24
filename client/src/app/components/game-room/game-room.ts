@@ -32,8 +32,10 @@ export class GameRoom implements OnInit, OnDestroy {
 
   readonly shakeActive = signal(false);
   readonly floatingTap = signal<{ index: number; text: string; color: string } | null>(null);
+  readonly dangerCallout = signal<string | null>(null);
   private shakeTimeout?: ReturnType<typeof setTimeout>;
   private floatTimeout?: ReturnType<typeof setTimeout>;
+  private dangerCalloutTimeout?: ReturnType<typeof setTimeout>;
 
   readonly maxPlayers = MAX_PLAYERS;
   readonly durationOptions = DURATION_OPTIONS;
@@ -57,6 +59,9 @@ export class GameRoom implements OnInit, OnDestroy {
   readonly canStart = this.gameState.canStart;
   readonly isSolo = this.gameState.isSolo;
   readonly dangerColor = this.gameState.dangerColor;
+  readonly dangerColorLabel = computed(
+    () => this.colorOptions.find((c) => c.value === this.dangerColor())?.label.toUpperCase() ?? '',
+  );
 
   // Last 10 seconds get an urgent visual treatment to ramp up tension.
   readonly isTimeUrgent = computed(() => this.timeLeft() <= 10 && this.timeLeft() > 0);
@@ -104,6 +109,14 @@ export class GameRoom implements OnInit, OnDestroy {
         this.shakeTimeout = setTimeout(() => this.shakeActive.set(false), 400);
         this.floatingTap.set({ index: tap.index, text: `-50`, color: `var(--${this.gameState.dangerColor()})` });
         this.audio.playBuzz();
+
+        // The buzz/shake alone doesn't say whose mistake it was - everyone in
+        // the room needs to see that, not just the player who tapped.
+        const isMe = tap.socketId === this.gameState.mySocketId();
+        const tapper = this.players().find((p) => p.socketId === tap.socketId);
+        this.dangerCallout.set(isMe ? 'YOU' : (tapper?.name ?? 'Someone').toUpperCase());
+        clearTimeout(this.dangerCalloutTimeout);
+        this.dangerCalloutTimeout = setTimeout(() => this.dangerCallout.set(null), 1200);
       } else {
         const multiplierLabel = tap.multiplier > 1 ? ` x${tap.multiplier}` : '';
         this.floatingTap.set({ index: tap.index, text: `+${tap.pointsAwarded}${multiplierLabel}`, color: 'var(--neon-green)' });
@@ -125,6 +138,7 @@ export class GameRoom implements OnInit, OnDestroy {
   ngOnDestroy() {
     clearTimeout(this.shakeTimeout);
     clearTimeout(this.floatTimeout);
+    clearTimeout(this.dangerCalloutTimeout);
   }
 
   startGame() {

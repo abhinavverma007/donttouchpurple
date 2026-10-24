@@ -78,10 +78,13 @@ export class Socket {
       this.gameState.timeLeft.set(timeLeft);
     });
 
-    socket.on('scoreUpdate', ({ players, tap }: { players: Player[]; tap: TapResult }) => {
-      this.gameState.players.set(players);
-      this.gameState.lastTap.set(tap);
-    });
+    socket.on(
+      'scoreUpdate',
+      ({ socketId, players, tap }: { socketId: string; players: Player[]; tap: Omit<TapResult, 'socketId'> }) => {
+        this.gameState.players.set(players);
+        this.gameState.lastTap.set({ ...tap, socketId });
+      },
+    );
 
     socket.on('gameOver', ({ players }: { players: Player[] }) => {
       this.gameState.players.set(players);
