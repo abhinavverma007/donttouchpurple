@@ -76,13 +76,26 @@ function endGame(io, room) {
   io.to(room.id).emit('gameOver', { players, winner, isSolo: room.isSolo });
 }
 
-function notifyRoomPlayerLeft(io, room, roomId) {
-  io.to(roomId).emit('playerLeft', { players: serializePlayers(room) });
-  const remaining = Object.keys(room.players).length;
-  if (room.gameState === 'playing' && remaining < MIN_PLAYERS_TO_START) {
-    logger.info({ roomId, remaining }, 'ending game early: too few players remain');
+function notifyRoomPlayerLeft(io, room, roomId, leftSocketId) {
+  const players = serializePlayers(room);
+  logger.info({ roomId, socketId: leftSocketId, remaining: players.length }, 'player left room');
+  io.to(roomId).emit('playerLeft', { players });
+  if (room.gameState === 'playing' && players.length < MIN_PLAYERS_TO_START) {
+    logger.info({ roomId, remaining: players.length }, 'ending game early: too few players remain');
     endGame(io, room);
   }
+}
+
+// Every `removePlayer` result - whether the room survives or gets torn down
+// entirely - gets a roomId-tagged log line, so filtering logs by a single
+// roomId gives a complete, gapless story of that room from creation to
+// teardown, with nothing resolvable only by cross-referencing a socketId.
+function logAndNotifyRoomDeparture(io, socket, result) {
+  if (result.roomDeleted) {
+    logger.info({ roomId: result.roomId, socketId: socket.id }, 'room emptied and removed');
+    return;
+  }
+  notifyRoomPlayerLeft(io, result.room, result.roomId, socket.id);
 }
 
 // A socket should only ever be a player in one room at a time. Evicting it
@@ -92,10 +105,8 @@ function notifyRoomPlayerLeft(io, room, roomId) {
 function leaveAllRooms(io, socket) {
   for (const result of removePlayer(socket.id)) {
     socket.leave(result.roomId);
-    logger.debug({ socketId: socket.id, roomId: result.roomId, roomDeleted: result.roomDeleted }, 'evicted from stale room');
-    if (!result.roomDeleted) {
-      notifyRoomPlayerLeft(io, result.room, result.roomId);
-    }
+    logger.debug({ socketId: socket.id, roomId: result.roomId }, 'evicted from stale room before create/join');
+    logAndNotifyRoomDeparture(io, socket, result);
   }
 }
 
@@ -270,9 +281,7 @@ io.on('connection', (socket) => {
   socket.on('disconnect', (reason) => {
     logger.info({ socketId: socket.id, reason }, 'socket disconnected');
     for (const result of removePlayer(socket.id)) {
-      if (!result.roomDeleted) {
-        notifyRoomPlayerLeft(io, result.room, result.roomId);
-      }
+      logAndNotifyRoomDeparture(io, socket, result);
     }
   });
 });
