@@ -162,22 +162,39 @@ export class Socket {
 
   // Called whenever the socket reconnects after the very first connection -
   // asks the server to restore whatever room/score/grid state this tab had
-  // before the drop. If too much time has passed (or there's nothing to
-  // recover), the match is gone for good and the player is sent back home.
-  private async attemptResync() {
+  // before the drop.
+  private attemptResync() {
     const roomId = this.gameState.roomId();
     if (!roomId) {
       this.gameState.connectionStatus.set('online');
       return;
     }
+    this.performResync(roomId);
+  }
 
+  // Public entry point for a page LOAD landing directly on a /room/:id URL
+  // with no live app state at all - a reload mid-match wipes every Angular
+  // signal, including gameState.roomId, so the room id has to come from the
+  // URL instead. sessionId survives in sessionStorage across the reload, so
+  // if the server is still holding this seat open (the same grace window a
+  // network drop gets), the match resumes instead of just being abandoned.
+  // Returns whether the session actually resumed.
+  resumeSession(roomId: string): Promise<boolean> {
+    return this.performResync(roomId);
+  }
+
+  // If too much time has passed (or there's nothing to recover), the match
+  // is gone for good and the caller is responsible for sending the player
+  // back home.
+  private async performResync(roomId: string): Promise<boolean> {
     const res = await this.resync(roomId);
     if (res.error) {
       this.gameState.errorMessage.set('Your match ended while you were disconnected.');
       this.gameState.reset();
-      return;
+      return false;
     }
 
+    this.gameState.roomId.set(roomId);
     this.gameState.players.set(res.players ?? []);
     if (res.gameState) this.gameState.phase.set(res.gameState);
     if (res.grid) this.gameState.grid.set(res.grid);
@@ -187,6 +204,7 @@ export class Socket {
     if (res.dangerColor) this.gameState.dangerColor.set(res.dangerColor);
     if (res.isSolo !== undefined) this.gameState.isSolo.set(res.isSolo);
     this.gameState.connectionStatus.set('online');
+    return true;
   }
 
   private resync(roomId: string): Promise<ResyncResponse> {

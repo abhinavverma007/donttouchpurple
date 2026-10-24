@@ -46,6 +46,17 @@ export class GameRoom implements OnInit, OnDestroy {
   readonly playAgainUnlockIn = signal(0);
   private playAgainInterval?: ReturnType<typeof setInterval>;
 
+  // A fresh page load (e.g. a reload mid-match) starts with phase() at its
+  // default 'home' value while the async session-resume check in ngOnInit is
+  // still in flight - without this guard, the "redirect home" effect below
+  // would fire on that transient initial value and race ahead of the resume
+  // attempt, kicking the player out before resync even gets a chance to
+  // prove the match is still recoverable. A signal (not a plain flag) is
+  // required here: when resync fails, phase ends up back at 'home' - the same
+  // value it started at - so phase() alone never "changes" from the effect's
+  // point of view, and only a tracked signal flip reliably re-triggers it.
+  private readonly sessionChecked = signal(false);
+
   readonly maxPlayers = MAX_PLAYERS;
   readonly durationOptions = DURATION_OPTIONS;
   readonly speedOptions = SPEED_OPTIONS;
@@ -163,7 +174,7 @@ export class GameRoom implements OnInit, OnDestroy {
     // component - without this, the player would just stare at a dead,
     // frozen game screen instead of landing back at the home screen.
     effect(() => {
-      if (this.phase() === 'home') {
+      if (this.sessionChecked() && this.phase() === 'home') {
         this.router.navigate(['/']);
       }
     });
@@ -188,11 +199,25 @@ export class GameRoom implements OnInit, OnDestroy {
     this.playAgainUnlockIn.set(0);
   }
 
-  ngOnInit() {
+  async ngOnInit() {
     const routeRoomId = this.route.snapshot.paramMap.get('roomId');
-    if (!routeRoomId || this.gameState.roomId() !== routeRoomId) {
+    if (!routeRoomId) {
       this.router.navigate(['/']);
+      return;
     }
+    if (this.gameState.roomId() === routeRoomId) {
+      this.sessionChecked.set(true); // live state already matches - normal in-app navigation into this room
+      return;
+    }
+
+    // No live state for this room - most likely a reload mid-match, which
+    // wipes every Angular signal. The room id survives in the URL itself, so
+    // try to resume the session (the server holds a dropped seat open for a
+    // grace window, same as a network drop) before giving up on it. Either
+    // way, the "redirect home" effect above takes it from here: phase() will
+    // be a real in-game value on success, or back at 'home' on failure.
+    await this.socketService.resumeSession(routeRoomId);
+    this.sessionChecked.set(true);
   }
 
   ngOnDestroy() {
