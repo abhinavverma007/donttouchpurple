@@ -12,6 +12,17 @@ function generateRoomId() {
   return id;
 }
 
+// Each player gets their own `grid`/`previousLit`/`gridInterval` - with 2+
+// players all racing for a single shared tile, the lowest-latency player wins
+// almost every round and everyone else scores nothing (confirmed live with 6
+// players: one player won ~90% of rounds, three others scored zero in 30s).
+// Independent per-player boards make it a fair "same rules, parallel boards"
+// race instead of a latency contest. Only match-wide state (duration, danger
+// color, refresh speed, the countdown timer) stays on the room itself.
+function newPlayer(name) {
+  return { name, score: 0, combo: 0, grid: [], previousLit: null, gridInterval: null };
+}
+
 function createRoom(hostSocketId, hostName, isSolo = false) {
   const roomId = generateRoomId();
   rooms[roomId] = {
@@ -19,13 +30,10 @@ function createRoom(hostSocketId, hostName, isSolo = false) {
     hostId: hostSocketId,
     isSolo: !!isSolo,
     players: {
-      [hostSocketId]: { name: hostName, score: 0, combo: 0 },
+      [hostSocketId]: newPlayer(hostName),
     },
     gameState: 'waiting', // waiting | playing | finished
-    grid: [],
-    previousLit: null,
     timeLeft: 60,
-    gridInterval: null,
     timerInterval: null,
   };
   return rooms[roomId];
@@ -42,7 +50,7 @@ function joinRoom(roomId, socketId, name) {
   if (room.gameState !== 'waiting') return { error: 'Game already in progress' };
   if (Object.keys(room.players).length >= MAX_PLAYERS) return { error: 'Room is full' };
 
-  room.players[socketId] = { name, score: 0, combo: 0 };
+  room.players[socketId] = newPlayer(name);
   return { room };
 }
 
@@ -57,6 +65,7 @@ function removePlayer(socketId) {
     const room = rooms[roomId];
     if (!room.players[socketId]) continue;
 
+    if (room.players[socketId].gridInterval) clearInterval(room.players[socketId].gridInterval);
     delete room.players[socketId];
 
     if (Object.keys(room.players).length === 0) {
@@ -84,17 +93,19 @@ function resetRoomForNewRound(room) {
   for (const player of Object.values(room.players)) {
     player.score = 0;
     player.combo = 0;
+    player.grid = [];
+    player.previousLit = null;
   }
   room.gameState = 'waiting';
-  room.grid = [];
-  room.previousLit = null;
 }
 
 function clearRoomIntervals(room) {
-  if (room.gridInterval) clearInterval(room.gridInterval);
   if (room.timerInterval) clearInterval(room.timerInterval);
-  room.gridInterval = null;
   room.timerInterval = null;
+  for (const player of Object.values(room.players)) {
+    if (player.gridInterval) clearInterval(player.gridInterval);
+    player.gridInterval = null;
+  }
 }
 
 function serializePlayers(room) {

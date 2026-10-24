@@ -172,7 +172,7 @@
   position: relative;
 }
 
-.danger-callout {
+.status-callout {
   align-self: center;
   margin-top: -6px;
   padding: 10px 20px;
@@ -182,10 +182,10 @@
   letter-spacing: 1px;
   white-space: nowrap;
   pointer-events: none;
-  animation: danger-callout-pop 1.2s ease forwards;
+  animation: status-callout-pop 1.2s ease forwards;
 }
 
-@keyframes danger-callout-pop {
+@keyframes status-callout-pop {
   0% {
     transform: scale(0.8);
     opacity: 0;

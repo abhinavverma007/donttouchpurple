@@ -4,7 +4,7 @@ const cors = require('cors');
 const { Server } = require('socket.io');
 
 const logger = require('./logger');
-const { generateGrid } = require('./colors');
+const { generateGrid, GRID_SIZE } = require('./colors');
 const { applyTap } = require('./gameLogic');
 const { resolveGameSettings } = require('./gameSettings');
 const {
@@ -112,36 +112,43 @@ function leaveAllRooms(io, socket) {
 
 // Render's free tier adds real, noticeable latency on top of ordinary network
 // RTT, so a perfectly-timed tap lands just after the server has already
-// relit the tile elsewhere more often than on a fast host. `graceInfo` (set
-// only when a tile times out naturally, never after someone has already
-// legitimately claimed it) lets a late-arriving tap for that exact tile
-// still score, once. Capping at `room.refreshMs` rather than half of it is
-// still safe even at Very Fast speed: `room.previousLit` is a single slot
-// that gets overwritten on every relight regardless of whether its grace
-// window technically expired yet, so a tile's real grace window can never
-// outlive the next relight either way - the cap just documents that bound
-// explicitly instead of relying on that overwrite behavior implicitly.
+// relit the tile more often than on a fast host. `graceInfo` (set only when a
+// tile times out naturally, never after it's already been legitimately
+// claimed) lets a late-arriving tap for that exact tile still score, once.
+// Capping at `room.refreshMs` rather than half of it is still safe even at
+// Very Fast speed: `player.previousLit` is a single slot that gets
+// overwritten on every relight regardless of whether its grace window
+// technically expired yet, so a tile's real grace window can never outlive
+// the next relight either way - the cap just documents that bound explicitly
+// instead of relying on that overwrite behavior implicitly.
 const MAX_TAP_GRACE_MS = 500;
-function relightGrid(io, room, graceInfo = null) {
-  const previousIndex = room.grid.findIndex((c) => c !== null);
-  room.previousLit = graceInfo;
-  room.grid = generateGrid(previousIndex);
-  io.to(room.id).emit('syncGrid', { grid: room.grid });
+
+// Each player has their own grid, relit on their own schedule, and synced only
+// to their own socket. Before this, one grid was shared by the whole room and
+// whoever had the lowest latency to the server won nearly every tile race -
+// confirmed live with 6 players, where one player scored ~90% of points and
+// three others scored zero in 30 seconds. Independent boards make every
+// player's chances depend on their own reflexes, not on everyone else's ping.
+function relightPlayerGrid(io, room, socketId, player, graceInfo = null) {
+  const previousIndex = player.grid.findIndex((c) => c !== null);
+  player.previousLit = graceInfo;
+  player.grid = generateGrid(previousIndex);
+  io.to(socketId).emit('syncGrid', { grid: player.grid });
 }
 
-function scheduleGridInterval(io, room) {
-  if (room.gridInterval) clearInterval(room.gridInterval);
-  room.gridInterval = setInterval(() => {
-    const litIndex = room.grid.findIndex((c) => c !== null);
+function schedulePlayerGridInterval(io, room, socketId, player) {
+  if (player.gridInterval) clearInterval(player.gridInterval);
+  player.gridInterval = setInterval(() => {
+    const litIndex = player.grid.findIndex((c) => c !== null);
     const graceInfo =
       litIndex === -1
         ? null
         : {
             index: litIndex,
-            color: room.grid[litIndex],
+            color: player.grid[litIndex],
             expiresAt: Date.now() + Math.min(MAX_TAP_GRACE_MS, room.refreshMs),
           };
-    relightGrid(io, room, graceInfo);
+    relightPlayerGrid(io, room, socketId, player, graceInfo);
   }, room.refreshMs);
 }
 
@@ -151,7 +158,6 @@ function startGameLoop(io, room, settings) {
   room.refreshMs = settings.refreshMs;
   room.dangerColor = settings.dangerColor;
   room.timeLeft = settings.durationSeconds;
-  room.grid = generateGrid();
 
   logger.info(
     {
@@ -165,16 +171,21 @@ function startGameLoop(io, room, settings) {
     'game started',
   );
 
-  io.to(room.id).emit('gameStarted', {
-    grid: room.grid,
-    timeLeft: room.timeLeft,
-    durationSeconds: room.durationSeconds,
-    refreshMs: room.refreshMs,
-    dangerColor: room.dangerColor,
-    isSolo: room.isSolo,
-  });
+  for (const [socketId, player] of Object.entries(room.players)) {
+    player.grid = generateGrid();
+    player.previousLit = null;
 
-  scheduleGridInterval(io, room);
+    io.to(socketId).emit('gameStarted', {
+      grid: player.grid,
+      timeLeft: room.timeLeft,
+      durationSeconds: room.durationSeconds,
+      refreshMs: room.refreshMs,
+      dangerColor: room.dangerColor,
+      isSolo: room.isSolo,
+    });
+
+    schedulePlayerGridInterval(io, room, socketId, player);
+  }
 
   room.timerInterval = setInterval(() => {
     room.timeLeft -= 1;
@@ -250,19 +261,19 @@ io.on('connection', (socket) => {
     if (!room || room.gameState !== 'playing') return;
     const player = room.players[socket.id];
     if (!player) return;
-    if (index < 0 || index >= room.grid.length) {
+    if (index < 0 || index >= GRID_SIZE) {
       logger.warn({ roomId, socketId: socket.id, index }, 'tapTile ignored: index out of range');
       return;
     }
 
-    let color = room.grid[index];
+    let color = player.grid[index];
 
     if (color === null) {
-      const grace = room.previousLit;
+      const grace = player.previousLit;
       const withinGrace = grace && grace.index === index && Date.now() <= grace.expiresAt;
       if (!withinGrace) return; // genuinely a dull tile, nothing to tap
       color = grace.color;
-      room.previousLit = null; // consume it so only the first late tap scores
+      player.previousLit = null; // consume it so only the first late tap scores
     }
 
     const result = applyTap(player, color, room.dangerColor);
@@ -274,8 +285,8 @@ io.on('connection', (socket) => {
       tap: { index, color, ...result },
     });
 
-    relightGrid(io, room);
-    scheduleGridInterval(io, room);
+    relightPlayerGrid(io, room, socket.id, player);
+    schedulePlayerGridInterval(io, room, socket.id, player);
   });
 
   socket.on('disconnect', (reason) => {

@@ -32,10 +32,10 @@ export class GameRoom implements OnInit, OnDestroy {
 
   readonly shakeActive = signal(false);
   readonly floatingTap = signal<{ index: number; text: string; color: string } | null>(null);
-  readonly dangerCallout = signal<string | null>(null);
+  readonly statusCallout = signal<{ text: string; color: string } | null>(null);
   private shakeTimeout?: ReturnType<typeof setTimeout>;
   private floatTimeout?: ReturnType<typeof setTimeout>;
-  private dangerCalloutTimeout?: ReturnType<typeof setTimeout>;
+  private statusCalloutTimeout?: ReturnType<typeof setTimeout>;
 
   // In the heat of the moment players mash "Play Again" the instant the round
   // ends, before anyone (including themselves) has actually seen the final
@@ -112,28 +112,40 @@ export class GameRoom implements OnInit, OnDestroy {
       const tap = this.gameState.lastTap();
       if (!tap) return;
 
-      if (tap.hitDanger) {
-        this.shakeActive.set(true);
-        clearTimeout(this.shakeTimeout);
-        this.shakeTimeout = setTimeout(() => this.shakeActive.set(false), 400);
-        this.floatingTap.set({ index: tap.index, text: `-50`, color: `var(--${this.gameState.dangerColor()})` });
-        this.audio.playBuzz();
+      // Each player now has their own independent grid (see server/src/index.js),
+      // so `tap.index` only refers to a real tile when the tap is mine - showing
+      // it on my own grid for someone else's tap would point at the wrong tile
+      // entirely. Other players' taps still get a name-attributed callout (not
+      // tied to any tile position) so the social feedback isn't lost.
+      const isMe = tap.socketId === this.gameState.mySocketId();
+      const tapper = this.players().find((p) => p.socketId === tap.socketId);
+      const label = isMe ? 'YOU' : (tapper?.name ?? 'Someone').toUpperCase();
 
-        // The buzz/shake alone doesn't say whose mistake it was - everyone in
-        // the room needs to see that, not just the player who tapped.
-        const isMe = tap.socketId === this.gameState.mySocketId();
-        const tapper = this.players().find((p) => p.socketId === tap.socketId);
-        this.dangerCallout.set(isMe ? 'YOU' : (tapper?.name ?? 'Someone').toUpperCase());
-        clearTimeout(this.dangerCalloutTimeout);
-        this.dangerCalloutTimeout = setTimeout(() => this.dangerCallout.set(null), 1200);
+      if (tap.hitDanger) {
+        if (isMe) {
+          this.shakeActive.set(true);
+          clearTimeout(this.shakeTimeout);
+          this.shakeTimeout = setTimeout(() => this.shakeActive.set(false), 400);
+          this.floatingTap.set({ index: tap.index, text: `-50`, color: `var(--${this.gameState.dangerColor()})` });
+          this.audio.playBuzz();
+        }
+        this.statusCallout.set({ text: `${label} HIT ${this.dangerColorLabel()}!`, color: `var(--${this.gameState.dangerColor()})` });
       } else {
-        const multiplierLabel = tap.multiplier > 1 ? ` x${tap.multiplier}` : '';
-        this.floatingTap.set({ index: tap.index, text: `+${tap.pointsAwarded}${multiplierLabel}`, color: 'var(--neon-green)' });
-        this.audio.playSuccess(tap.multiplier);
+        if (isMe) {
+          const multiplierLabel = tap.multiplier > 1 ? ` x${tap.multiplier}` : '';
+          this.floatingTap.set({ index: tap.index, text: `+${tap.pointsAwarded}${multiplierLabel}`, color: 'var(--neon-green)' });
+          this.audio.playSuccess(tap.multiplier);
+        } else {
+          this.statusCallout.set({ text: `${label} +${tap.pointsAwarded}`, color: 'var(--neon-green)' });
+        }
       }
 
-      clearTimeout(this.floatTimeout);
-      this.floatTimeout = setTimeout(() => this.floatingTap.set(null), 700);
+      if (isMe) {
+        clearTimeout(this.floatTimeout);
+        this.floatTimeout = setTimeout(() => this.floatingTap.set(null), 700);
+      }
+      clearTimeout(this.statusCalloutTimeout);
+      this.statusCalloutTimeout = setTimeout(() => this.statusCallout.set(null), 1200);
     });
 
     effect(() => {
@@ -174,7 +186,7 @@ export class GameRoom implements OnInit, OnDestroy {
   ngOnDestroy() {
     clearTimeout(this.shakeTimeout);
     clearTimeout(this.floatTimeout);
-    clearTimeout(this.dangerCalloutTimeout);
+    clearTimeout(this.statusCalloutTimeout);
     clearInterval(this.playAgainInterval);
   }
 

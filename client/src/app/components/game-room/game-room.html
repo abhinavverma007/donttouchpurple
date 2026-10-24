@@ -104,13 +104,13 @@
           }
         </header>
 
-        @if (dangerCallout()) {
+        @if (statusCallout()) {
           <div
-            class="danger-callout brutal-box"
-            [style.border-color]="'var(--' + dangerColor() + ')'"
-            [style.color]="'var(--' + dangerColor() + ')'"
+            class="status-callout brutal-box"
+            [style.border-color]="statusCallout()!.color"
+            [style.color]="statusCallout()!.color"
           >
-            {{ dangerCallout() }} HIT {{ dangerColorLabel() }}!
+            {{ statusCallout()!.text }}
           </div>
         }
 
