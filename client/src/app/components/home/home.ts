@@ -41,7 +41,10 @@ export class Home {
   }
 
   async createRoom() {
-    const name = this.name().trim();
+    // The username field is styled uppercase while typing (.brutal-input); without
+    // this, the actual stored name keeps its typed case and looks inconsistent
+    // everywhere it's rendered without that CSS, e.g. the waiting room list.
+    const name = this.name().trim().toUpperCase();
     if (!name) {
       this.error.set('Enter a username first.');
       return;
@@ -65,7 +68,7 @@ export class Home {
   }
 
   async joinRoom() {
-    const name = this.name().trim();
+    const name = this.name().trim().toUpperCase();
     const roomId = this.joinRoomId().trim().toUpperCase();
     if (!name) {
       this.error.set('Enter a username first.');
@@ -96,7 +99,7 @@ export class Home {
   async playSolo() {
     this.busy.set(true);
     this.error.set(null);
-    const name = this.name().trim() || 'Player 1';
+    const name = this.name().trim().toUpperCase() || 'PLAYER 1';
     const res = await this.socketService.createRoom(name, true);
 
     if (res.error) {
