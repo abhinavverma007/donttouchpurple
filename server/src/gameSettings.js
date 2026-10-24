@@ -6,11 +6,12 @@ const DEFAULT_DURATION_SECONDS = 60;
 // Grid refresh interval, ms (lower = faster). This isn't simple reaction time
 // (~200ms) - it's visual search across 10 tile positions, color ID, a
 // decide, and a physical tap, which realistically needs 400-800ms+ even for
-// an attentive player. The old ladder bottomed out at 300ms, which is below
-// what most humans can reliably do for this task; rebalanced so even "Very
-// Fast" stays genuinely human-achievable (hard, not robot-only).
-const SPEED_OPTIONS = [1800, 1200, 900, 600];
-const DEFAULT_REFRESH_MS = 1800;
+// an attentive player. An earlier ladder bottomed out at 300ms (robot-only);
+// the one after that (bottoming at 600ms) swung too far the other way and
+// felt trivial. This sits in between: still human-achievable at the top end,
+// genuinely tense at the bottom.
+const SPEED_OPTIONS = [1500, 1000, 700, 450];
+const DEFAULT_REFRESH_MS = 1500;
 
 const DEFAULT_DANGER_COLOR = 'purple';
 

@@ -42,18 +42,19 @@ export const DURATION_OPTIONS = [30, 60, 90, 120];
 
 // This isn't simple reaction time (~200ms) - it's visual search across 10
 // tile positions, color ID, a decide, and a physical tap, which realistically
-// needs 400-800ms+ even for an attentive player. Rebalanced so even "Very
-// Fast" stays genuinely human-achievable (hard, not robot-only).
-export const DEFAULT_REFRESH_MS = 1800;
+// needs 400-800ms+ even for an attentive player. Must stay in sync with
+// server/src/gameSettings.js - the server silently falls back to its default
+// for any value not in its own allow-list.
+export const DEFAULT_REFRESH_MS = 1500;
 export interface SpeedOption {
   label: string;
   refreshMs: number;
 }
 export const SPEED_OPTIONS: SpeedOption[] = [
-  { label: 'Relaxed', refreshMs: 1800 },
-  { label: 'Normal', refreshMs: 1200 },
-  { label: 'Fast', refreshMs: 900 },
-  { label: 'Very Fast', refreshMs: 600 },
+  { label: 'Relaxed', refreshMs: 1500 },
+  { label: 'Normal', refreshMs: 1000 },
+  { label: 'Fast', refreshMs: 700 },
+  { label: 'Very Fast', refreshMs: 450 },
 ];
 
 export interface ColorOption {
