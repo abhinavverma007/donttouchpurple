@@ -11,6 +11,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
 
+    <!-- "Add to Home Screen" support: iOS Safari has no Fullscreen API at all
+         (not even for Chrome-for-iOS, since every iOS browser is required to
+         use WebKit under the hood), so a chrome-less standalone launch via a
+         home-screen icon is the closest thing to fullscreen iPhone allows. -->
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Don't Touch Purple" />
+    <meta name="theme-color" content="#000000" />
+
     <!-- Open Graph / link preview (WhatsApp, Slack, iMessage, Discord, Facebook, LinkedIn) -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Don't Touch The Purple" />

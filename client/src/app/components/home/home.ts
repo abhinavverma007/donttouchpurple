@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Socket } from '../../services/socket';
 import { GameState } from '../../services/game-state';
+import { Fullscreen } from '../../services/fullscreen';
 
 type Mode = 'menu' | 'create' | 'join';
 
@@ -16,6 +17,7 @@ export class Home {
   private readonly socketService = inject(Socket);
   private readonly gameState = inject(GameState);
   private readonly router = inject(Router);
+  private readonly fullscreen = inject(Fullscreen);
 
   readonly mode = signal<Mode>('menu');
   readonly name = signal('');
@@ -58,6 +60,7 @@ export class Home {
     this.gameState.roomId.set(res.roomId);
     this.gameState.players.set(res.players);
     this.gameState.phase.set('waiting');
+    this.fullscreen.enter();
     this.router.navigate(['/room', res.roomId]);
   }
 
@@ -86,6 +89,7 @@ export class Home {
     this.gameState.roomId.set(res.roomId);
     this.gameState.players.set(res.players);
     this.gameState.phase.set('waiting');
+    this.fullscreen.enter();
     this.router.navigate(['/room', res.roomId]);
   }
 
@@ -106,6 +110,7 @@ export class Home {
     this.gameState.isSolo.set(true);
     this.gameState.phase.set('waiting');
     this.busy.set(false);
+    this.fullscreen.enter();
     this.router.navigate(['/room', res.roomId]);
   }
 }

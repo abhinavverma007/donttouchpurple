@@ -37,6 +37,36 @@ export class Audio {
     osc.stop(start + duration + 0.02);
   }
 
+  // A percussive, pitchless burst (filtered white noise) instead of a tone -
+  // a fundamentally different texture from the square-wave tile click, the
+  // way a real clock/metronome tick is a "tsk" rather than a musical note.
+  private noiseBurst(startOffset: number, duration: number, filterFreq: number, peakGain: number) {
+    const ctx = this.getContext();
+    const start = ctx.currentTime + startOffset;
+
+    const bufferSize = Math.max(1, Math.ceil(ctx.sampleRate * duration));
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = Math.random() * 2 - 1;
+    }
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.setValueAtTime(filterFreq, start);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(peakGain, start);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+
+    noise.connect(filter).connect(gain).connect(ctx.destination);
+    noise.start(start);
+    noise.stop(start + duration + 0.02);
+  }
+
   /** Short tactile click on every tile press, like a physical arcade button. */
   playClick() {
     try {
@@ -57,11 +87,21 @@ export class Audio {
     }
   }
 
-  /** Harsh low buzzer for touching purple. */
+  /** Harsh low buzzer for touching the danger color. */
   playBuzz() {
     try {
       this.tone(110, 0, 0.22, 'sawtooth', 0.14);
       this.tone(98, 0.03, 0.22, 'square', 0.1);
+    } catch {
+      // Audio is a nice-to-have; never let it break gameplay.
+    }
+  }
+
+  /** Percussive clock-tick for the final seconds of a match; sharper and louder once it's down to the wire. */
+  playTick(secondsLeft: number) {
+    try {
+      const critical = secondsLeft <= 3;
+      this.noiseBurst(0, 0.035, critical ? 3200 : 2200, critical ? 0.28 : 0.18);
     } catch {
       // Audio is a nice-to-have; never let it break gameplay.
     }

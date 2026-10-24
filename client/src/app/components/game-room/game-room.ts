@@ -58,6 +58,9 @@ export class GameRoom implements OnInit, OnDestroy {
   readonly isSolo = this.gameState.isSolo;
   readonly dangerColor = this.gameState.dangerColor;
 
+  // Last 10 seconds get an urgent visual treatment to ramp up tension.
+  readonly isTimeUrgent = computed(() => this.timeLeft() <= 10 && this.timeLeft() > 0);
+
   readonly comboTierLabel = computed(() => {
     const combo = this.me()?.combo ?? 0;
     if (combo >= 10) return 'GOLD x5';
@@ -82,6 +85,15 @@ export class GameRoom implements OnInit, OnDestroy {
   readonly didIWin = computed(() => this.myRank() === 1);
 
   constructor() {
+    // One tick per second during the final countdown, synced to the same
+    // server-driven timeLeft signal that drives the visual urgency state.
+    effect(() => {
+      const seconds = this.timeLeft();
+      if (this.phase() === 'playing' && seconds <= 10 && seconds > 0) {
+        this.audio.playTick(seconds);
+      }
+    });
+
     effect(() => {
       const tap = this.gameState.lastTap();
       if (!tap) return;
@@ -135,6 +147,7 @@ export class GameRoom implements OnInit, OnDestroy {
   }
 
   playAgain() {
+    this.fullscreen.enter();
     this.socketService.playAgain(this.roomId());
   }
 

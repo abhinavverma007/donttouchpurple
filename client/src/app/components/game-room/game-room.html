@@ -16,6 +16,10 @@
           }
         </div>
 
+        @if (!fullscreen.isSupported && fullscreen.isIOS && !fullscreen.isStandalone) {
+          <p class="ios-hint">📱 For fullscreen on iPhone: tap Share → Add to Home Screen, then open it from there.</p>
+        }
+
         @if (!isSolo()) {
           <div class="room-id-row">
             <span>Room ID</span>
@@ -82,7 +86,7 @@
     @case ('playing') {
       <section class="arena">
         <header class="hud">
-          <div class="timer brutal-box">{{ timeLeft() }}s</div>
+          <div class="timer brutal-box" [class.urgent]="isTimeUrgent()">{{ timeLeft() }}s</div>
           <div class="avoid-indicator brutal-box">
             <span>AVOID</span>
             <span class="avoid-swatch" [style.background]="'var(--' + dangerColor() + ')'"></span>

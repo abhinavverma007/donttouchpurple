@@ -129,6 +129,17 @@
   font-weight: 700;
 }
 
+.ios-hint {
+  width: 100%;
+  margin: 0;
+  padding: 8px 12px;
+  background: #111;
+  border: 2px solid #333;
+  color: #aaa;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
 .host-settings {
   width: 100%;
   display: flex;
@@ -172,6 +183,24 @@
 .combo-hud {
   padding: 10px 16px;
   font-weight: 900;
+}
+
+.timer.urgent {
+  background: var(--neon-red);
+  color: #000;
+  animation: timer-urgent-pulse 0.6s ease-in-out infinite;
+}
+
+@keyframes timer-urgent-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--color-white);
+  }
+  50% {
+    transform: scale(1.15);
+    box-shadow: 9px 9px 0 var(--color-white);
+  }
 }
 
 .avoid-indicator {
