@@ -225,6 +225,19 @@ export class GameRoom implements OnInit, OnDestroy {
     clearTimeout(this.floatTimeout);
     clearTimeout(this.statusCalloutTimeout);
     clearInterval(this.playAgainInterval);
+
+    // Navigating away any way other than the explicit Leave button - browser
+    // back/forward, typing a new URL - never called disconnect(), so the
+    // player stayed fully connected and fully counted server-side (even
+    // still the host, silently blocking everyone else from starting the
+    // match) while their own screen had already moved on with no way back.
+    // This is treated as a deliberate departure (immediate, no reconnection
+    // grace period) same as the Leave button - distinct from an involuntary
+    // network drop or a reload, which still get their grace window.
+    if (this.gameState.roomId()) {
+      this.socketService.disconnect();
+      this.gameState.reset();
+    }
   }
 
   startGame() {
