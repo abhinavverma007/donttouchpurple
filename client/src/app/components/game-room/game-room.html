@@ -1,4 +1,10 @@
 <div class="room-wrap" [class.shake]="shakeActive()">
+  @if (connectionStatus() === 'reconnecting') {
+    <div class="reconnect-overlay">
+      <span class="reconnect-spinner"></span>
+      Connection lost — reconnecting…
+    </div>
+  }
   @switch (phase()) {
     @case ('waiting') {
       <section class="panel brutal-box waiting-panel">
@@ -35,6 +41,7 @@
               {{ p.name }}
               @if (p.isHost) { <span class="tag">HOST</span> }
               @if (p.socketId === gameState.mySocketId()) { <span class="tag you">YOU</span> }
+              @if (disconnectedPlayerIds().has(p.socketId)) { <span class="tag reconnecting">RECONNECTING</span> }
             </li>
           }
         </ul>
@@ -118,7 +125,10 @@
           @for (p of leaderboard(); track p.socketId; let i = $index) {
             <li class="score-row" [class.me]="p.socketId === gameState.mySocketId()">
               <span class="rank">#{{ i + 1 }}</span>
-              <span class="player-name">{{ p.name }}{{ p.socketId === gameState.mySocketId() ? ' (you)' : '' }}</span>
+              <span class="player-name">
+                {{ p.name }}{{ p.socketId === gameState.mySocketId() ? ' (you)' : '' }}
+                @if (disconnectedPlayerIds().has(p.socketId)) { <span class="tag reconnecting">RECONNECTING</span> }
+              </span>
               <span class="player-score">{{ p.score }}</span>
             </li>
           }

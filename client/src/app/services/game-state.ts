@@ -18,7 +18,12 @@ export class GameState {
   readonly mySocketId = signal('');
 
   readonly phase = signal<GamePhase>('home');
+  readonly connectionStatus = signal<'online' | 'reconnecting'>('online');
   readonly players = signal<Player[]>([]);
+  // Players the server has reported as connection-dropped but still within
+  // their reconnection grace window - lets other players' UI show "waiting
+  // for them" instead of just going quiet with no explanation.
+  readonly disconnectedPlayerIds = signal<Set<string>>(new Set());
   readonly grid = signal<GridTile[]>([]);
   readonly timeLeft = signal(DEFAULT_DURATION_SECONDS);
   readonly durationSeconds = signal(DEFAULT_DURATION_SECONDS);
@@ -41,7 +46,9 @@ export class GameState {
   reset() {
     this.roomId.set('');
     this.phase.set('home');
+    this.connectionStatus.set('online');
     this.players.set([]);
+    this.disconnectedPlayerIds.set(new Set());
     this.grid.set([]);
     this.timeLeft.set(DEFAULT_DURATION_SECONDS);
     this.durationSeconds.set(DEFAULT_DURATION_SECONDS);

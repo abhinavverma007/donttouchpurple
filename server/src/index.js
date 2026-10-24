@@ -12,6 +12,8 @@ const {
   getRoom,
   joinRoom,
   removePlayer,
+  findRoomsForSocket,
+  recoverPlayerSession,
   clearRoomIntervals,
   resetRoomForNewRound,
   serializePlayers,
@@ -110,6 +112,42 @@ function leaveAllRooms(io, socket) {
   }
 }
 
+// A dropped wifi/mobile connection and a deliberate "Leave" click produce the
+// same 'disconnect' event, but should NOT be treated the same way: without
+// this, a few seconds of bad signal mid-match permanently evicts the player
+// (and can even end a 2-player match early) with no way back in, because a
+// reconnect gets a brand-new socket id the server has never seen before. For
+// a recoverable-looking reason, the seat is held open instead of freed.
+const RECONNECT_GRACE_MS = 60_000;
+const RECOVERABLE_DISCONNECT_REASONS = new Set(['transport close', 'transport error', 'ping timeout']);
+
+function beginDisconnectGracePeriod(io, socket, reason) {
+  if (!RECOVERABLE_DISCONNECT_REASONS.has(reason)) return false;
+
+  const matches = findRoomsForSocket(socket.id);
+  if (matches.length !== 1) return false; // not in exactly one room - nothing sane to hold open
+
+  const { roomId, room } = matches[0];
+  const player = room.players[socket.id];
+  const socketId = socket.id;
+
+  if (player.gridInterval) clearInterval(player.gridInterval);
+  player.gridInterval = null;
+  player.pendingRecovery = true;
+
+  logger.info({ roomId, socketId, sessionId: player.sessionId }, 'player disconnected, holding seat open for reconnection');
+  io.to(roomId).emit('playerConnectionLost', { socketId, name: player.name });
+
+  player.recoveryTimeout = setTimeout(() => {
+    logger.info({ roomId, socketId }, 'reconnection grace period expired, removing player');
+    for (const result of removePlayer(socketId)) {
+      logAndNotifyRoomDeparture(io, { id: socketId }, result);
+    }
+  }, RECONNECT_GRACE_MS);
+
+  return true;
+}
+
 // Render's free tier adds real, noticeable latency on top of ordinary network
 // RTT, so a perfectly-timed tap lands just after the server has already
 // relit the tile more often than on a fast host. `graceInfo` (set only when a
@@ -199,17 +237,17 @@ function startGameLoop(io, room, settings) {
 io.on('connection', (socket) => {
   logger.info({ socketId: socket.id }, 'socket connected');
 
-  socket.on('createRoom', ({ name, solo }, callback) => {
+  socket.on('createRoom', ({ name, solo, sessionId }, callback) => {
     leaveAllRooms(io, socket);
-    const room = createRoom(socket.id, name || 'Player 1', !!solo);
+    const room = createRoom(socket.id, name || 'Player 1', !!solo, sessionId);
     socket.join(room.id);
     logger.info({ roomId: room.id, socketId: socket.id, isSolo: room.isSolo }, 'room created');
     callback?.({ roomId: room.id, players: serializePlayers(room), isSolo: room.isSolo });
   });
 
-  socket.on('joinRoom', ({ roomId, name }, callback) => {
+  socket.on('joinRoom', ({ roomId, name, sessionId }, callback) => {
     leaveAllRooms(io, socket);
-    const result = joinRoom(roomId, socket.id, name || 'Player 2');
+    const result = joinRoom(roomId, socket.id, name || 'Player 2', sessionId);
     if (result.error) {
       logger.warn({ roomId, socketId: socket.id, reason: result.error }, 'join room rejected');
       callback?.({ error: result.error });
@@ -221,6 +259,41 @@ io.on('connection', (socket) => {
     logger.info({ roomId, socketId: socket.id, playerCount: players.length }, 'player joined room');
     callback?.({ roomId, players });
     socket.to(roomId).emit('playerJoined', { players });
+  });
+
+  // A reconnecting client proactively asks to reclaim its seat (rather than
+  // relying solely on Socket.io's own low-level transport recovery) so the
+  // app's own grace-period logic - score/combo/host preservation - stays in
+  // full, easily-testable control instead of depending on engine internals.
+  socket.on('resync', ({ roomId, sessionId }, callback) => {
+    const room = getRoom(roomId);
+    const recovered = room && recoverPlayerSession(room, sessionId, socket.id);
+    if (!recovered) {
+      callback?.({ error: 'Session not recoverable' });
+      return;
+    }
+
+    socket.join(roomId);
+    const { player, oldSocketId } = recovered;
+    logger.info({ roomId, socketId: socket.id, oldSocketId, sessionId }, 'player session recovered after reconnect');
+
+    if (room.gameState === 'playing') {
+      relightPlayerGrid(io, room, socket.id, player);
+      schedulePlayerGridInterval(io, room, socket.id, player);
+    }
+
+    io.to(roomId).emit('playerReconnected', { previousSocketId: oldSocketId, players: serializePlayers(room) });
+
+    callback?.({
+      gameState: room.gameState,
+      players: serializePlayers(room),
+      grid: player.grid,
+      timeLeft: room.timeLeft,
+      durationSeconds: room.durationSeconds,
+      refreshMs: room.refreshMs,
+      dangerColor: room.dangerColor,
+      isSolo: room.isSolo,
+    });
   });
 
   socket.on('startGame', ({ roomId, durationSeconds, refreshMs, dangerColor }) => {
@@ -291,6 +364,7 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', (reason) => {
     logger.info({ socketId: socket.id, reason }, 'socket disconnected');
+    if (beginDisconnectGracePeriod(io, socket, reason)) return;
     for (const result of removePlayer(socket.id)) {
       logAndNotifyRoomDeparture(io, socket, result);
     }

@@ -59,6 +59,8 @@ export class GameRoom implements OnInit, OnDestroy {
 
   readonly roomId = computed(() => this.gameState.roomId());
   readonly players = this.gameState.players;
+  readonly connectionStatus = this.gameState.connectionStatus;
+  readonly disconnectedPlayerIds = this.gameState.disconnectedPlayerIds;
   readonly leaderboard = this.gameState.leaderboard;
   readonly grid = this.gameState.grid;
   readonly timeLeft = this.gameState.timeLeft;
@@ -153,6 +155,16 @@ export class GameRoom implements OnInit, OnDestroy {
         this.startPlayAgainCountdown();
       } else {
         this.clearPlayAgainCountdown();
+      }
+    });
+
+    // A failed resync after reconnecting (session expired, match already
+    // over) resets gameState.phase to 'home' out from under this still-mounted
+    // component - without this, the player would just stare at a dead,
+    // frozen game screen instead of landing back at the home screen.
+    effect(() => {
+      if (this.phase() === 'home') {
+        this.router.navigate(['/']);
       }
     });
   }

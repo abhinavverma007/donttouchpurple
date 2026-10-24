@@ -22,8 +22,15 @@ export class Home {
   readonly mode = signal<Mode>('menu');
   readonly name = signal('');
   readonly joinRoomId = signal('');
-  readonly error = signal<string | null>(null);
+  // Seeded from a failed reconnect-resync (e.g. "your match ended while you
+  // were disconnected") - a one-shot message, cleared immediately so it
+  // doesn't linger across unrelated visits to this screen.
+  readonly error = signal<string | null>(this.gameState.errorMessage());
   readonly busy = signal(false);
+
+  constructor() {
+    this.gameState.errorMessage.set(null);
+  }
 
   showCreate() {
     this.error.set(null);

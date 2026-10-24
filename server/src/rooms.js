@@ -19,18 +19,31 @@ function generateRoomId() {
 // Independent per-player boards make it a fair "same rules, parallel boards"
 // race instead of a latency contest. Only match-wide state (duration, danger
 // color, refresh speed, the countdown timer) stays on the room itself.
-function newPlayer(name) {
-  return { name, score: 0, combo: 0, grid: [], previousLit: null, gridInterval: null };
+// `sessionId` is a client-generated id that survives a reconnect even though
+// `socketId` doesn't - it's how a dropped player reclaims their seat (score,
+// combo, host status) instead of a network blip silently ending their match.
+function newPlayer(name, sessionId) {
+  return {
+    name,
+    score: 0,
+    combo: 0,
+    grid: [],
+    previousLit: null,
+    gridInterval: null,
+    sessionId,
+    pendingRecovery: false,
+    recoveryTimeout: null,
+  };
 }
 
-function createRoom(hostSocketId, hostName, isSolo = false) {
+function createRoom(hostSocketId, hostName, isSolo = false, sessionId) {
   const roomId = generateRoomId();
   rooms[roomId] = {
     id: roomId,
     hostId: hostSocketId,
     isSolo: !!isSolo,
     players: {
-      [hostSocketId]: newPlayer(hostName),
+      [hostSocketId]: newPlayer(hostName, sessionId),
     },
     gameState: 'waiting', // waiting | playing | finished
     timeLeft: 60,
@@ -43,15 +56,46 @@ function getRoom(roomId) {
   return rooms[roomId];
 }
 
-function joinRoom(roomId, socketId, name) {
+function joinRoom(roomId, socketId, name, sessionId) {
   const room = rooms[roomId];
   if (!room) return { error: 'Room not found' };
   if (room.isSolo) return { error: 'Room not found' };
   if (room.gameState !== 'waiting') return { error: 'Game already in progress' };
   if (Object.keys(room.players).length >= MAX_PLAYERS) return { error: 'Room is full' };
 
-  room.players[socketId] = newPlayer(name);
+  room.players[socketId] = newPlayer(name, sessionId);
   return { room };
+}
+
+// Every room this socket currently has a player entry in - normally exactly
+// one. Used instead of trusting a single cached roomId so a stray
+// double-membership is never silently missed.
+function findRoomsForSocket(socketId) {
+  return Object.keys(rooms)
+    .map((roomId) => ({ roomId, room: rooms[roomId] }))
+    .filter(({ room }) => !!room.players[socketId]);
+}
+
+// Reclaims a seat held open for reconnection: finds the stale player entry
+// (still keyed by their old, now-dead socket id) by sessionId, re-keys it to
+// the new connection, and cancels the pending removal. Score, combo, and host
+// status all survive the gap untouched.
+function recoverPlayerSession(room, sessionId, newSocketId) {
+  const oldSocketId = Object.keys(room.players).find(
+    (id) => room.players[id].sessionId === sessionId && room.players[id].pendingRecovery,
+  );
+  if (!oldSocketId) return null;
+
+  const player = room.players[oldSocketId];
+  clearTimeout(player.recoveryTimeout);
+  player.recoveryTimeout = null;
+  player.pendingRecovery = false;
+
+  delete room.players[oldSocketId];
+  room.players[newSocketId] = player;
+  if (room.hostId === oldSocketId) room.hostId = newSocketId;
+
+  return { player, oldSocketId };
 }
 
 // A socket should only ever be a player in one room, but this scans and
@@ -66,6 +110,7 @@ function removePlayer(socketId) {
     if (!room.players[socketId]) continue;
 
     if (room.players[socketId].gridInterval) clearInterval(room.players[socketId].gridInterval);
+    if (room.players[socketId].recoveryTimeout) clearTimeout(room.players[socketId].recoveryTimeout);
     delete room.players[socketId];
 
     if (Object.keys(room.players).length === 0) {
@@ -126,6 +171,8 @@ module.exports = {
   getRoom,
   joinRoom,
   removePlayer,
+  findRoomsForSocket,
+  recoverPlayerSession,
   clearRoomIntervals,
   resetRoomForNewRound,
   serializePlayers,
