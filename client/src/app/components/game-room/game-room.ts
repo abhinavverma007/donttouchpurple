@@ -37,6 +37,15 @@ export class GameRoom implements OnInit, OnDestroy {
   private floatTimeout?: ReturnType<typeof setTimeout>;
   private dangerCalloutTimeout?: ReturnType<typeof setTimeout>;
 
+  // In the heat of the moment players mash "Play Again" the instant the round
+  // ends, before anyone (including themselves) has actually seen the final
+  // standings - and since any player can trigger it, one trigger-happy click
+  // wipes the leaderboard for the whole room. A short forced look-time fixes
+  // both: the button stays disabled for everyone until it elapses.
+  private static readonly PLAY_AGAIN_DELAY_SECONDS = 4;
+  readonly playAgainUnlockIn = signal(0);
+  private playAgainInterval?: ReturnType<typeof setInterval>;
+
   readonly maxPlayers = MAX_PLAYERS;
   readonly durationOptions = DURATION_OPTIONS;
   readonly speedOptions = SPEED_OPTIONS;
@@ -126,6 +135,33 @@ export class GameRoom implements OnInit, OnDestroy {
       clearTimeout(this.floatTimeout);
       this.floatTimeout = setTimeout(() => this.floatingTap.set(null), 700);
     });
+
+    effect(() => {
+      if (this.phase() === 'finished') {
+        this.startPlayAgainCountdown();
+      } else {
+        this.clearPlayAgainCountdown();
+      }
+    });
+  }
+
+  private startPlayAgainCountdown() {
+    this.clearPlayAgainCountdown();
+    this.playAgainUnlockIn.set(GameRoom.PLAY_AGAIN_DELAY_SECONDS);
+    this.playAgainInterval = setInterval(() => {
+      const next = this.playAgainUnlockIn() - 1;
+      if (next <= 0) {
+        this.clearPlayAgainCountdown();
+      } else {
+        this.playAgainUnlockIn.set(next);
+      }
+    }, 1000);
+  }
+
+  private clearPlayAgainCountdown() {
+    clearInterval(this.playAgainInterval);
+    this.playAgainInterval = undefined;
+    this.playAgainUnlockIn.set(0);
   }
 
   ngOnInit() {
@@ -139,6 +175,7 @@ export class GameRoom implements OnInit, OnDestroy {
     clearTimeout(this.shakeTimeout);
     clearTimeout(this.floatTimeout);
     clearTimeout(this.dangerCalloutTimeout);
+    clearInterval(this.playAgainInterval);
   }
 
   startGame() {
@@ -161,6 +198,7 @@ export class GameRoom implements OnInit, OnDestroy {
   }
 
   playAgain() {
+    if (this.playAgainUnlockIn() > 0) return;
     this.fullscreen.enter();
     this.socketService.playAgain(this.roomId());
   }

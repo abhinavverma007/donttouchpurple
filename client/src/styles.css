@@ -89,6 +89,11 @@ input {
   box-shadow: 3px 3px 0 var(--color-white);
 }
 
+.brutal-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .brutal-input {
   background: #0a0a0a;
   color: var(--color-white);
