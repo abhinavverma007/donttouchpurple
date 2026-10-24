@@ -46,16 +46,16 @@ export const DURATION_OPTIONS = [30, 60, 90, 120];
 // needs 400-800ms+ even for an attentive player. Must stay in sync with
 // server/src/gameSettings.js - the server silently falls back to its default
 // for any value not in its own allow-list.
-export const DEFAULT_REFRESH_MS = 1500;
+export const DEFAULT_REFRESH_MS = 1800;
 export interface SpeedOption {
   label: string;
   refreshMs: number;
 }
 export const SPEED_OPTIONS: SpeedOption[] = [
-  { label: 'Relaxed', refreshMs: 1500 },
-  { label: 'Normal', refreshMs: 1000 },
-  { label: 'Fast', refreshMs: 700 },
-  { label: 'Very Fast', refreshMs: 450 },
+  { label: 'Relaxed', refreshMs: 1800 },
+  { label: 'Normal', refreshMs: 1300 },
+  { label: 'Fast', refreshMs: 1000 },
+  { label: 'Very Fast', refreshMs: 750 },
 ];
 
 export interface ColorOption {
