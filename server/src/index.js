@@ -44,6 +44,27 @@ function endGame(io, room) {
   io.to(room.id).emit('gameOver', { players, winner, isSolo: room.isSolo });
 }
 
+function notifyRoomPlayerLeft(io, room, roomId) {
+  io.to(roomId).emit('playerLeft', { players: serializePlayers(room) });
+  const remaining = Object.keys(room.players).length;
+  if (room.gameState === 'playing' && remaining < MIN_PLAYERS_TO_START) {
+    endGame(io, room);
+  }
+}
+
+// A socket should only ever be a player in one room at a time. Evicting it
+// from anything stale before it creates/joins a new one keeps that
+// invariant true, instead of just hoping disconnect eventually cleans up
+// after it.
+function leaveAllRooms(io, socket) {
+  for (const result of removePlayer(socket.id)) {
+    socket.leave(result.roomId);
+    if (!result.roomDeleted) {
+      notifyRoomPlayerLeft(io, result.room, result.roomId);
+    }
+  }
+}
+
 const MAX_TAP_GRACE_MS = 250;
 
 // Network latency can land a perfectly-timed tap just after the server has
@@ -101,12 +122,14 @@ function startGameLoop(io, room, settings) {
 
 io.on('connection', (socket) => {
   socket.on('createRoom', ({ name, solo }, callback) => {
+    leaveAllRooms(io, socket);
     const room = createRoom(socket.id, name || 'Player 1', !!solo);
     socket.join(room.id);
     callback?.({ roomId: room.id, players: serializePlayers(room) });
   });
 
   socket.on('joinRoom', ({ roomId, name }, callback) => {
+    leaveAllRooms(io, socket);
     const result = joinRoom(roomId, socket.id, name || 'Player 2');
     if (result.error) {
       callback?.({ error: result.error });
@@ -159,13 +182,10 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    const result = removePlayer(socket.id);
-    if (!result || result.roomDeleted) return;
-
-    io.to(result.roomId).emit('playerLeft', { players: serializePlayers(result.room) });
-    const remaining = Object.keys(result.room.players).length;
-    if (result.room.gameState === 'playing' && remaining < MIN_PLAYERS_TO_START) {
-      endGame(io, result.room);
+    for (const result of removePlayer(socket.id)) {
+      if (!result.roomDeleted) {
+        notifyRoomPlayerLeft(io, result.room, result.roomId);
+      }
     }
   });
 });

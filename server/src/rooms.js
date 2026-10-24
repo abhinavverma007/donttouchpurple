@@ -46,25 +46,33 @@ function joinRoom(roomId, socketId, name) {
   return { room };
 }
 
+// A socket should only ever be a player in one room, but this scans and
+// cleans up *every* room it's found in (not just the first) so a stray
+// double-membership can never leak a room - and its running intervals -
+// forever.
 function removePlayer(socketId) {
+  const affected = [];
+
   for (const roomId of Object.keys(rooms)) {
     const room = rooms[roomId];
-    if (room.players[socketId]) {
-      delete room.players[socketId];
+    if (!room.players[socketId]) continue;
 
-      if (Object.keys(room.players).length === 0) {
-        clearRoomIntervals(room);
-        delete rooms[roomId];
-        return { roomId, roomDeleted: true };
-      }
+    delete room.players[socketId];
 
-      if (room.hostId === socketId) {
-        room.hostId = Object.keys(room.players)[0];
-      }
-      return { roomId, roomDeleted: false, room };
+    if (Object.keys(room.players).length === 0) {
+      clearRoomIntervals(room);
+      delete rooms[roomId];
+      affected.push({ roomId, roomDeleted: true });
+      continue;
     }
+
+    if (room.hostId === socketId) {
+      room.hostId = Object.keys(room.players)[0];
+    }
+    affected.push({ roomId, roomDeleted: false, room });
   }
-  return null;
+
+  return affected;
 }
 
 function clearRoomIntervals(room) {
