@@ -66,12 +66,18 @@ function leaveAllRooms(io, socket) {
   }
 }
 
-const MAX_TAP_GRACE_MS = 250;
-
-// Network latency can land a perfectly-timed tap just after the server has
-// already relit the tile elsewhere. `graceInfo` (set only when a tile times
-// out naturally, never after someone has already legitimately claimed it)
-// lets a late-arriving tap for that exact tile still score, once.
+// Render's free tier adds real, noticeable latency on top of ordinary network
+// RTT, so a perfectly-timed tap lands just after the server has already
+// relit the tile elsewhere more often than on a fast host. `graceInfo` (set
+// only when a tile times out naturally, never after someone has already
+// legitimately claimed it) lets a late-arriving tap for that exact tile
+// still score, once. Capping at `room.refreshMs` rather than half of it is
+// still safe even at Very Fast speed: `room.previousLit` is a single slot
+// that gets overwritten on every relight regardless of whether its grace
+// window technically expired yet, so a tile's real grace window can never
+// outlive the next relight either way - the cap just documents that bound
+// explicitly instead of relying on that overwrite behavior implicitly.
+const MAX_TAP_GRACE_MS = 500;
 function relightGrid(io, room, graceInfo = null) {
   const previousIndex = room.grid.findIndex((c) => c !== null);
   room.previousLit = graceInfo;
@@ -89,7 +95,7 @@ function scheduleGridInterval(io, room) {
         : {
             index: litIndex,
             color: room.grid[litIndex],
-            expiresAt: Date.now() + Math.min(MAX_TAP_GRACE_MS, Math.floor(room.refreshMs / 2)),
+            expiresAt: Date.now() + Math.min(MAX_TAP_GRACE_MS, room.refreshMs),
           };
     relightGrid(io, room, graceInfo);
   }, room.refreshMs);
