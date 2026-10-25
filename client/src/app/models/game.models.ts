@@ -14,6 +14,7 @@ export type GridTile = TileColor | null;
 export interface Player {
   socketId: string;
   name: string;
+  avatar: string;
   score: number;
   combo: number;
   isHost: boolean;

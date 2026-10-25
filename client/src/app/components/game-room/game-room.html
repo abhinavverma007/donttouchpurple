@@ -38,7 +38,7 @@
         <ul class="player-list">
           @for (p of players(); track p.socketId) {
             <li>
-              {{ p.name }}
+              <span class="avatar">{{ p.avatar }}</span> {{ p.name }}
               @if (p.isHost) { <span class="tag">HOST</span> }
               @if (p.socketId === gameState.mySocketId()) { <span class="tag you">YOU</span> }
               @if (disconnectedPlayerIds().has(p.socketId)) { <span class="tag reconnecting">RECONNECTING</span> }
@@ -126,7 +126,7 @@
             <li class="score-row" [class.me]="p.socketId === gameState.mySocketId()">
               <span class="rank">#{{ i + 1 }}</span>
               <span class="player-name">
-                {{ p.name }}{{ p.socketId === gameState.mySocketId() ? ' (you)' : '' }}
+                <span class="avatar">{{ p.avatar }}</span> {{ p.name }}{{ p.socketId === gameState.mySocketId() ? ' (you)' : '' }}
                 @if (disconnectedPlayerIds().has(p.socketId)) { <span class="tag reconnecting">RECONNECTING</span> }
               </span>
               <span class="player-score">{{ p.score }}</span>
@@ -168,7 +168,7 @@
           <ul class="final-scores">
             @for (p of leaderboard(); track p.socketId; let i = $index) {
               <li [class.you]="p.socketId === gameState.mySocketId()">
-                #{{ i + 1 }} {{ p.name }} — {{ p.score }}
+                #{{ i + 1 }} <span class="avatar">{{ p.avatar }}</span> {{ p.name }} — {{ p.score }}
               </li>
             }
           </ul>

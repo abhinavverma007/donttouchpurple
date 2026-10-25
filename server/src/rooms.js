@@ -1,3 +1,5 @@
+const { pickAvatar } = require('./avatars');
+
 const ROOM_ID_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I ambiguity
 const MAX_PLAYERS = 10;
 const MIN_PLAYERS_TO_START = 2;
@@ -22,9 +24,13 @@ function generateRoomId() {
 // `sessionId` is a client-generated id that survives a reconnect even though
 // `socketId` doesn't - it's how a dropped player reclaims their seat (score,
 // combo, host status) instead of a network blip silently ending their match.
-function newPlayer(name, sessionId) {
+// `avatar` is picked by the caller (createRoom/joinRoom) so it can be checked
+// against everyone else already in the room - no two players in the same
+// room ever get the same vehicle.
+function newPlayer(name, sessionId, avatar) {
   return {
     name,
+    avatar,
     score: 0,
     combo: 0,
     grid: [],
@@ -43,7 +49,7 @@ function createRoom(hostSocketId, hostName, isSolo = false, sessionId) {
     hostId: hostSocketId,
     isSolo: !!isSolo,
     players: {
-      [hostSocketId]: newPlayer(hostName, sessionId),
+      [hostSocketId]: newPlayer(hostName, sessionId, pickAvatar()),
     },
     gameState: 'waiting', // waiting | playing | finished
     timeLeft: 60,
@@ -63,7 +69,8 @@ function joinRoom(roomId, socketId, name, sessionId) {
   if (room.gameState !== 'waiting') return { error: 'Game already in progress' };
   if (Object.keys(room.players).length >= MAX_PLAYERS) return { error: 'Room is full' };
 
-  room.players[socketId] = newPlayer(name, sessionId);
+  const usedAvatars = Object.values(room.players).map((p) => p.avatar);
+  room.players[socketId] = newPlayer(name, sessionId, pickAvatar(usedAvatars));
   return { room };
 }
 
@@ -157,6 +164,7 @@ function serializePlayers(room) {
   return Object.entries(room.players).map(([socketId, p]) => ({
     socketId,
     name: p.name,
+    avatar: p.avatar,
     score: p.score,
     combo: p.combo,
     isHost: socketId === room.hostId,

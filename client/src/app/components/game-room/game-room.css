@@ -112,6 +112,11 @@
   gap: 8px;
 }
 
+.avatar {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
 .tag {
   font-size: 0.7rem;
   background: var(--neon-cyan);
