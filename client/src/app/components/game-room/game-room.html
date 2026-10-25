@@ -175,7 +175,9 @@
         }
 
         <div class="result-actions">
-          <button class="brutal-button secondary" (click)="leaveRoom()">Leave</button>
+          <button class="brutal-button secondary" [disabled]="playAgainUnlockIn() > 0" (click)="leaveRoom()">
+            {{ playAgainUnlockIn() > 0 ? 'Leave (' + playAgainUnlockIn() + ')' : 'Leave' }}
+          </button>
           <button class="brutal-button" [disabled]="playAgainUnlockIn() > 0" (click)="playAgain()">
             {{ playAgainUnlockIn() > 0 ? 'Play Again (' + playAgainUnlockIn() + ')' : 'Play Again' }}
           </button>

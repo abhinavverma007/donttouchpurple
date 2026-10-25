@@ -37,11 +37,12 @@ export class GameRoom implements OnInit, OnDestroy {
   private floatTimeout?: ReturnType<typeof setTimeout>;
   private statusCalloutTimeout?: ReturnType<typeof setTimeout>;
 
-  // In the heat of the moment players mash "Play Again" the instant the round
-  // ends, before anyone (including themselves) has actually seen the final
-  // standings - and since any player can trigger it, one trigger-happy click
-  // wipes the leaderboard for the whole room. A short forced look-time fixes
-  // both: the button stays disabled for everyone until it elapses.
+  // In the heat of the moment players mash "Play Again" or "Leave" the
+  // instant the round ends, before anyone (including themselves) has
+  // actually seen the final standings - and since any player can trigger
+  // "Play Again", one trigger-happy click wipes the leaderboard for the whole
+  // room. A short forced look-time fixes both: both result-screen buttons
+  // stay disabled until it elapses.
   private static readonly PLAY_AGAIN_DELAY_SECONDS = 4;
   readonly playAgainUnlockIn = signal(0);
   private playAgainInterval?: ReturnType<typeof setInterval>;
@@ -266,6 +267,7 @@ export class GameRoom implements OnInit, OnDestroy {
   }
 
   leaveRoom() {
+    if (this.playAgainUnlockIn() > 0) return;
     this.socketService.disconnect();
     this.gameState.reset();
     this.router.navigate(['/']);
