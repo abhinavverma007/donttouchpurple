@@ -23,7 +23,7 @@
   flex: 1;
 }
 
-.result-actions .secondary {
+.secondary {
   background: #222;
   color: var(--color-white);
 }

@@ -88,6 +88,8 @@
         } @else {
           <p class="hint">Waiting for the host to start…</p>
         }
+
+        <button class="brutal-button secondary" (click)="leaveRoom()">Leave</button>
       </section>
     }
     @case ('playing') {
