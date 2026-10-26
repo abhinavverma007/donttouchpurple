@@ -14,6 +14,7 @@ const {
   removePlayer,
   findRoomsForSocket,
   recoverPlayerSession,
+  getOtherVoicePeers,
   clearRoomIntervals,
   resetRoomForNewRound,
   serializePlayers,
@@ -22,6 +23,11 @@ const {
 
 const PORT = process.env.PORT || 3000;
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || '*';
+
+// A single switch to kill in-room voice chat without a code change or
+// redeploy of client logic - set VOICE_CHAT_ENABLED=false in the environment
+// and restart. Enabled by default; only an explicit "false" turns it off.
+const VOICE_CHAT_ENABLED = process.env.VOICE_CHAT_ENABLED !== 'false';
 
 const app = express();
 app.use(cors({ origin: CLIENT_ORIGIN }));
@@ -93,6 +99,9 @@ function notifyRoomPlayerLeft(io, room, roomId, leftSocketId) {
 // roomId gives a complete, gapless story of that room from creation to
 // teardown, with nothing resolvable only by cross-referencing a socketId.
 function logAndNotifyRoomDeparture(io, socket, result) {
+  if (result.wasInVoice) {
+    io.to(result.roomId).emit('voicePeerLeft', { socketId: socket.id });
+  }
   if (result.roomDeleted) {
     logger.info({ roomId: result.roomId, socketId: socket.id }, 'room emptied and removed');
     return;
@@ -134,6 +143,14 @@ function beginDisconnectGracePeriod(io, socket, reason) {
   if (player.gridInterval) clearInterval(player.gridInterval);
   player.gridInterval = null;
   player.pendingRecovery = true;
+
+  // The game seat is held open, but a dead transport means the WebRTC mesh for
+  // this peer is dead too - there's no reconnecting a live media connection,
+  // only rejoining voice fresh (an explicit click) after the game session
+  // itself recovers, same as not auto-granting mic access without a gesture.
+  if (room.voicePeers.delete(socketId)) {
+    io.to(roomId).emit('voicePeerLeft', { socketId });
+  }
 
   logger.info({ roomId, socketId, sessionId: player.sessionId }, 'player disconnected, holding seat open for reconnection');
   io.to(roomId).emit('playerConnectionLost', { socketId, name: player.name });
@@ -236,6 +253,7 @@ function startGameLoop(io, room, settings) {
 
 io.on('connection', (socket) => {
   logger.info({ socketId: socket.id }, 'socket connected');
+  socket.emit('config', { voiceChatEnabled: VOICE_CHAT_ENABLED });
 
   socket.on('createRoom', ({ name, solo, sessionId }, callback) => {
     leaveAllRooms(io, socket);
@@ -294,6 +312,50 @@ io.on('connection', (socket) => {
       dangerColor: room.dangerColor,
       isSolo: room.isSolo,
     });
+  });
+
+  // WebRTC signaling relay for in-room voice chat. The server never sees or
+  // touches audio itself - it only passes offer/answer/ICE messages between
+  // the two browsers involved, exactly like it already does for game state.
+  // A microphone is only ever requested after an explicit "Join Voice" click
+  // (never automatically), so joining voice here just means "start relaying
+  // signaling for this socket," not "this socket's mic is live."
+  socket.on('voiceJoin', ({ roomId }, callback) => {
+    if (!VOICE_CHAT_ENABLED) {
+      callback?.({ error: 'Voice chat is disabled' });
+      return;
+    }
+    const room = getRoom(roomId);
+    if (!room || !room.players[socket.id]) {
+      callback?.({ error: 'Not in this room' });
+      return;
+    }
+
+    const existingPeers = getOtherVoicePeers(room, socket.id);
+    room.voicePeers.add(socket.id);
+    logger.info({ roomId, socketId: socket.id, peerCount: room.voicePeers.size }, 'player joined voice chat');
+
+    socket.to(roomId).emit('voicePeerJoined', { socketId: socket.id });
+    // The new peer initiates an offer to each existing peer - handing back the
+    // existing list (rather than having everyone offer the newcomer) avoids
+    // double offers crossing in flight for the same pair.
+    callback?.({ peers: existingPeers });
+  });
+
+  socket.on('voiceLeave', ({ roomId }) => {
+    const room = getRoom(roomId);
+    if (!room || !room.voicePeers.delete(socket.id)) return;
+    logger.info({ roomId, socketId: socket.id }, 'player left voice chat');
+    io.to(roomId).emit('voicePeerLeft', { socketId: socket.id });
+  });
+
+  // Pure relay: offer, answer, and ICE candidate payloads are opaque to the
+  // server and forwarded verbatim to the intended peer, restricted to another
+  // socket actually in the same room's voice session.
+  socket.on('voiceSignal', ({ roomId, to, signal }) => {
+    const room = getRoom(roomId);
+    if (!room || !room.voicePeers.has(socket.id) || !room.voicePeers.has(to)) return;
+    io.to(to).emit('voiceSignal', { from: socket.id, signal });
   });
 
   socket.on('startGame', ({ roomId, durationSeconds, refreshMs, dangerColor }) => {

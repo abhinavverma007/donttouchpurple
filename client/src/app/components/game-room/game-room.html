@@ -5,6 +5,21 @@
       Connection lost — reconnecting…
     </div>
   }
+  @if (voiceChatEnabled() && !isSolo()) {
+    <div class="voice-bar brutal-box">
+      @if (!voice.joined()) {
+        <button class="brutal-button secondary voice-btn" (click)="toggleVoice()">🎤 Join Voice</button>
+      } @else {
+        <button class="brutal-button secondary voice-btn" (click)="voice.toggleMute()">
+          {{ voice.muted() ? '🔇 Unmute' : '🎙️ Mute' }}
+        </button>
+        <button class="brutal-button secondary voice-btn" (click)="toggleVoice()">📞 Leave Voice</button>
+      }
+      @if (voice.error()) {
+        <span class="voice-error">{{ voice.error() }}</span>
+      }
+    </div>
+  }
   @switch (phase()) {
     @case ('waiting') {
       <section class="panel brutal-box waiting-panel">
@@ -39,6 +54,7 @@
           @for (p of players(); track p.socketId) {
             <li>
               <span class="avatar">{{ p.avatar }}</span> {{ p.name }}
+              @if (voicePeerIds().has(p.socketId)) { <span class="voice-indicator" title="In voice chat">🎤</span> }
               @if (p.isHost) { <span class="tag">HOST</span> }
               @if (p.socketId === gameState.mySocketId()) { <span class="tag you">YOU</span> }
               @if (disconnectedPlayerIds().has(p.socketId)) { <span class="tag reconnecting">RECONNECTING</span> }
@@ -129,6 +145,7 @@
               <span class="rank">#{{ i + 1 }}</span>
               <span class="player-name">
                 <span class="avatar">{{ p.avatar }}</span> {{ p.name }}{{ p.socketId === gameState.mySocketId() ? ' (you)' : '' }}
+                @if (voicePeerIds().has(p.socketId)) { <span class="voice-indicator" title="In voice chat">🎤</span> }
                 @if (disconnectedPlayerIds().has(p.socketId)) { <span class="tag reconnecting">RECONNECTING</span> }
               </span>
               <span class="player-score">{{ p.score }}</span>

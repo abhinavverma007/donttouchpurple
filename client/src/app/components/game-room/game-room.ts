@@ -4,6 +4,7 @@ import { Socket } from '../../services/socket';
 import { GameState } from '../../services/game-state';
 import { Audio } from '../../services/audio';
 import { Fullscreen } from '../../services/fullscreen';
+import { Voice } from '../../services/voice';
 import {
   COLOR_OPTIONS,
   DEFAULT_DANGER_COLOR,
@@ -29,6 +30,7 @@ export class GameRoom implements OnInit, OnDestroy {
   private readonly audio = inject(Audio);
   readonly fullscreen = inject(Fullscreen);
   readonly gameState = inject(GameState);
+  readonly voice = inject(Voice);
 
   readonly shakeActive = signal(false);
   readonly floatingTap = signal<{ index: number; text: string; color: string } | null>(null);
@@ -73,6 +75,8 @@ export class GameRoom implements OnInit, OnDestroy {
   readonly players = this.gameState.players;
   readonly connectionStatus = this.gameState.connectionStatus;
   readonly disconnectedPlayerIds = this.gameState.disconnectedPlayerIds;
+  readonly voiceChatEnabled = this.gameState.voiceChatEnabled;
+  readonly voicePeerIds = this.gameState.voicePeerIds;
   readonly leaderboard = this.gameState.leaderboard;
   readonly grid = this.gameState.grid;
   readonly timeLeft = this.gameState.timeLeft;
@@ -258,6 +262,14 @@ export class GameRoom implements OnInit, OnDestroy {
 
   copyRoomId() {
     navigator.clipboard?.writeText(this.roomId());
+  }
+
+  toggleVoice() {
+    if (this.voice.joined()) {
+      this.voice.leave(this.roomId());
+    } else {
+      this.voice.join(this.roomId());
+    }
   }
 
   playAgain() {
