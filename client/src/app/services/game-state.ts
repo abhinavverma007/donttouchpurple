@@ -24,6 +24,12 @@ export class GameState {
   // their reconnection grace window - lets other players' UI show "waiting
   // for them" instead of just going quiet with no explanation.
   readonly disconnectedPlayerIds = signal<Set<string>>(new Set());
+  // Set once from the server's 'config' event on connect - a server-side env
+  // toggle (VOICE_CHAT_ENABLED), not something the client can turn on itself.
+  readonly voiceChatEnabled = signal(false);
+  // Every player currently opted into voice chat in this room (self included
+  // once joined) - a microphone is never requested without an explicit click.
+  readonly voicePeerIds = signal<Set<string>>(new Set());
   readonly grid = signal<GridTile[]>([]);
   readonly timeLeft = signal(DEFAULT_DURATION_SECONDS);
   readonly durationSeconds = signal(DEFAULT_DURATION_SECONDS);
@@ -49,6 +55,7 @@ export class GameState {
     this.connectionStatus.set('online');
     this.players.set([]);
     this.disconnectedPlayerIds.set(new Set());
+    this.voicePeerIds.set(new Set());
     this.grid.set([]);
     this.timeLeft.set(DEFAULT_DURATION_SECONDS);
     this.durationSeconds.set(DEFAULT_DURATION_SECONDS);

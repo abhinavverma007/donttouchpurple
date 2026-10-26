@@ -4,6 +4,8 @@
   max-width: 560px;
   padding: 24px;
   display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 @media (max-width: 480px) {
@@ -26,6 +28,29 @@
 .secondary {
   background: #222;
   color: var(--color-white);
+}
+
+.voice-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+}
+
+.voice-btn {
+  padding: 8px 14px;
+  font-size: 0.8rem;
+}
+
+.voice-error {
+  color: var(--neon-red);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.voice-indicator {
+  font-size: 0.9rem;
 }
 
 .panel {

@@ -54,6 +54,10 @@ function createRoom(hostSocketId, hostName, isSolo = false, sessionId) {
     gameState: 'waiting', // waiting | playing | finished
     timeLeft: 60,
     timerInterval: null,
+    // Separate from `players`: who's actually opted into voice chat right now
+    // (a microphone is never joined automatically). Tracked per-room so
+    // signaling can be relayed only to the people who actually need it.
+    voicePeers: new Set(),
   };
   return rooms[roomId];
 }
@@ -120,17 +124,19 @@ function removePlayer(socketId) {
     if (room.players[socketId].recoveryTimeout) clearTimeout(room.players[socketId].recoveryTimeout);
     delete room.players[socketId];
 
+    const wasInVoice = room.voicePeers.delete(socketId);
+
     if (Object.keys(room.players).length === 0) {
       clearRoomIntervals(room);
       delete rooms[roomId];
-      affected.push({ roomId, roomDeleted: true });
+      affected.push({ roomId, roomDeleted: true, wasInVoice });
       continue;
     }
 
     if (room.hostId === socketId) {
       room.hostId = Object.keys(room.players)[0];
     }
-    affected.push({ roomId, roomDeleted: false, room });
+    affected.push({ roomId, roomDeleted: false, room, wasInVoice });
   }
 
   return affected;
@@ -160,6 +166,13 @@ function clearRoomIntervals(room) {
   }
 }
 
+// Returns every other voice participant's socket id, for the newly-joining
+// peer to initiate WebRTC offers to (the new peer always initiates, so there's
+// no ambiguity about who offers vs. answers).
+function getOtherVoicePeers(room, socketId) {
+  return [...room.voicePeers].filter((id) => id !== socketId);
+}
+
 function serializePlayers(room) {
   return Object.entries(room.players).map(([socketId, p]) => ({
     socketId,
@@ -181,6 +194,7 @@ module.exports = {
   removePlayer,
   findRoomsForSocket,
   recoverPlayerSession,
+  getOtherVoicePeers,
   clearRoomIntervals,
   resetRoomForNewRound,
   serializePlayers,

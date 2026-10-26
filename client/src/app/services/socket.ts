@@ -29,6 +29,16 @@ interface ResyncResponse {
   isSolo?: boolean;
 }
 
+export interface VoiceSignalMessage {
+  from: string;
+  signal: unknown;
+}
+
+interface VoiceJoinResponse {
+  error?: string;
+  peers?: string[];
+}
+
 // Survives a dropped connection even though socket.id doesn't, so a
 // reconnecting client can prove to the server "I'm the same player who just
 // got cut off" and reclaim their seat instead of the server treating them as
@@ -53,6 +63,7 @@ export class Socket {
   private socket: IOSocket | null = null;
   private readonly sessionId = getSessionId();
   private hasConnectedBefore = false;
+  private voiceSignalHandler: ((msg: VoiceSignalMessage) => void) | null = null;
 
   private ensureConnected(): IOSocket {
     if (!this.socket) {
@@ -79,6 +90,26 @@ export class Socket {
     socket.on('disconnect', (reason) => {
       if (reason === 'io client disconnect') return;
       this.gameState.connectionStatus.set('reconnecting');
+    });
+
+    socket.on('config', ({ voiceChatEnabled }: { voiceChatEnabled: boolean }) => {
+      this.gameState.voiceChatEnabled.set(voiceChatEnabled);
+    });
+
+    socket.on('voicePeerJoined', ({ socketId }: { socketId: string }) => {
+      this.gameState.voicePeerIds.update((ids) => new Set(ids).add(socketId));
+    });
+
+    socket.on('voicePeerLeft', ({ socketId }: { socketId: string }) => {
+      this.gameState.voicePeerIds.update((ids) => {
+        const next = new Set(ids);
+        next.delete(socketId);
+        return next;
+      });
+    });
+
+    socket.on('voiceSignal', (msg: VoiceSignalMessage) => {
+      this.voiceSignalHandler?.(msg);
     });
 
     socket.on('playerJoined', ({ players }: { players: Player[] }) => {
@@ -240,6 +271,29 @@ export class Socket {
 
   playAgain(roomId: string) {
     this.socket?.emit('playAgain', { roomId });
+  }
+
+  // Registers the Voice service's handler for incoming WebRTC signaling
+  // messages. Stored as a plain field rather than a socket.io listener owned
+  // by Voice directly, keeping this service the single thing that ever talks
+  // to socket.io-client (consistent with how every other event here works).
+  onVoiceSignal(handler: (msg: VoiceSignalMessage) => void) {
+    this.voiceSignalHandler = handler;
+  }
+
+  joinVoiceChannel(roomId: string): Promise<VoiceJoinResponse> {
+    const socket = this.ensureConnected();
+    return new Promise((resolve) => {
+      socket.emit('voiceJoin', { roomId }, (res: VoiceJoinResponse) => resolve(res));
+    });
+  }
+
+  leaveVoiceChannel(roomId: string) {
+    this.socket?.emit('voiceLeave', { roomId });
+  }
+
+  emitVoiceSignal(roomId: string, to: string, signal: unknown) {
+    this.socket?.emit('voiceSignal', { roomId, to, signal });
   }
 
   disconnect() {
