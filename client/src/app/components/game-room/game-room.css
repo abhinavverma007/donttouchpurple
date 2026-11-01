@@ -249,10 +249,22 @@
   position: relative;
 }
 
-.status-callout {
+/* A fixed-height slot that's always a flex child of .arena, whether or not the
+   banner inside it currently exists - so the scoreboard/grid below it never
+   reflow up and down every time anyone scores or hits the danger color.
+   Reported live as "the tile grid keeps moving mid-game"; reproduced and
+   confirmed before this fix: the grid shifted ~28px every single time the
+   banner (previously @if-removed at this level) appeared. */
+.status-callout-slot {
   align-self: center;
-  margin-top: -6px;
-  padding: 10px 20px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status-callout {
+  padding: 0 20px;
   background: rgba(0, 0, 0, 0.88);
   font-weight: 900;
   font-size: 0.95rem;

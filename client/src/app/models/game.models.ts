@@ -22,6 +22,22 @@ export interface Player {
 
 export type ComboTier = 'none' | 'bronze' | 'silver' | 'gold';
 
+// Mirrors server/src/gameLogic.js's BASE_POINTS/tierForCombo - used only to
+// predict a tap's outcome instantly on-click (see GameRoom.tapTile), before
+// the server's authoritative scoreUpdate round-trips back. The server's
+// values are the only ones that actually move a player's real score; this
+// just has to agree with them closely enough that the optimistic guess and
+// the real result look the same in the common case.
+export const BASE_POINTS = 10;
+const COMBO_TIERS: { minCombo: number; multiplier: number }[] = [
+  { minCombo: 10, multiplier: 5 },
+  { minCombo: 6, multiplier: 3 },
+  { minCombo: 3, multiplier: 2 },
+];
+export function multiplierForCombo(combo: number): number {
+  return COMBO_TIERS.find((t) => combo >= t.minCombo)?.multiplier ?? 1;
+}
+
 export interface TapResult {
   socketId: string;
   index: number;

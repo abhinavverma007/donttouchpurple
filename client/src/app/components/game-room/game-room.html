@@ -129,15 +129,13 @@
           }
         </header>
 
-        @if (statusCallout()) {
-          <div
-            class="status-callout brutal-box"
-            [style.border-color]="statusCallout()!.color"
-            [style.color]="statusCallout()!.color"
-          >
-            {{ statusCallout()!.text }}
-          </div>
-        }
+        <div class="status-callout-slot">
+          @if (statusCallout(); as callout) {
+            <div class="status-callout brutal-box" [style.border-color]="callout.color" [style.color]="callout.color">
+              {{ callout.text }}
+            </div>
+          }
+        </div>
 
         <ul class="scoreboard brutal-box">
           @for (p of leaderboard(); track p.socketId; let i = $index) {

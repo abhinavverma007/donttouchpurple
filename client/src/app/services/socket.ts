@@ -65,6 +65,17 @@ export class Socket {
   private hasConnectedBefore = false;
   private voiceSignalHandler: ((msg: VoiceSignalMessage) => void) | null = null;
 
+  // Without this, the socket only connects lazily inside createRoom/joinRoom/
+  // resumeSession - meaning the ~700-800ms connect handshake sits in the
+  // critical path of the player's very first click (measured on production:
+  // see the 10-player latency report). Connecting as soon as this service is
+  // first constructed (effectively app startup, since Home/GameRoom both
+  // inject it immediately) lets that handshake finish in the background while
+  // the player is still reading the screen, not waiting on it.
+  constructor() {
+    this.ensureConnected();
+  }
+
   private ensureConnected(): IOSocket {
     if (!this.socket) {
       this.socket = io(environment.serverUrl, { autoConnect: true });
